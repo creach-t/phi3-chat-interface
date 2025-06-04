@@ -282,36 +282,8 @@
         </div>
     </div>
 
-    <script>
-        // Fonction pour mettre à jour le compteur de caractères
-        function updateCharCount(textarea) {
-            const count = textarea.value.length;
-            const countSpan = document.getElementById('char-count');
-            const indicator = document.getElementById('length-indicator');
-            
-            countSpan.textContent = count;
-            
-            if (count <= 200) {
-                indicator.textContent = '✓ Optimal';
-                indicator.className = 'length-good';
-            } else if (count <= 500) {
-                indicator.textContent = '⚠ Acceptable';
-                indicator.className = 'length-warning';
-            } else {
-                indicator.textContent = '✗ Trop long';
-                indicator.className = 'length-error';
-            }
-        }
-
-        // Fonctions globales pour les boutons rapides
-        function showSettings() {
-            document.getElementById('settings-btn').click();
-        }
-
-        function showPreprompts() {
-            document.getElementById('preprompts-btn').click();
-        }
-    </script>
-    <script src="script.js"></script>
+    <!-- Scripts modulaires -->
+    <script type="module" src="js/app.js"></script>
+    <script type="module" src="js/global-functions.js"></script>
 </body>
 </html>
