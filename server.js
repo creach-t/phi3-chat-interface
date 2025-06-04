@@ -134,11 +134,11 @@ app.delete("/api/preprompts/:id", requireAuth, (req, res) => {
   }
 });
 
-// Route pour le chat (VERSION DEBUG)
+// Route pour le chat (VERSION AVEC DÉTECTION AUTO DE FIN)
 app.post("/api/chat", requireAuth, (req, res) => {
   const { message, preprompt = "" } = req.body;
 
-  console.log("🚀 Nouvelle requête chat:", { message, preprompt }); // DEBUG
+  console.log("🚀 Nouvelle requête chat:", { message, preprompt });
 
   if (!message) {
     return res.status(400).json({ error: "Message requis" });
@@ -149,14 +149,14 @@ app.post("/api/chat", requireAuth, (req, res) => {
   const sendResponse = (statusCode, data) => {
     if (!responseSent) {
       responseSent = true;
-      console.log("📤 Envoi réponse:", { statusCode, data }); // DEBUG
+      console.log("📤 Envoi réponse:", { statusCode, data });
       res.status(statusCode).json(data);
     }
   };
 
   // Construire le prompt complet
   const fullPrompt = preprompt ? `${preprompt}\n\nUser: ${message}` : message;
-  console.log("📝 Prompt final:", fullPrompt); // DEBUG
+  console.log("📝 Prompt final:", fullPrompt);
 
   // Arguments pour llama.cpp
   const args = [
@@ -171,58 +171,81 @@ app.post("/api/chat", requireAuth, (req, res) => {
     "--temp",
     "0.7",
     "--no-display-prompt",
-    "-i",
-    "--no-warmup",
   ];
 
-  console.log("🔧 Commande llama.cpp:", config.llamaCppPath, args); // DEBUG
+  console.log("🔧 Commande llama.cpp:", config.llamaCppPath, args);
 
   // Lancer llama.cpp
   const llamaProcess = spawn(config.llamaCppPath, args);
 
   let response = "";
   let errorOutput = "";
+  let hasStartedGenerating = false;
+  let lastChunkTime = Date.now();
 
   llamaProcess.stdout.on("data", (data) => {
     const chunk = data.toString();
-    console.log("📥 STDOUT chunk:", chunk); // DEBUG
     response += chunk;
+    lastChunkTime = Date.now();
+
+    console.log("📥 STDOUT chunk:", JSON.stringify(chunk));
+
+    // Détecter le début de la génération de contenu utile
+    if (!hasStartedGenerating && chunk.includes("<|assistant|>")) {
+      hasStartedGenerating = true;
+      console.log("✨ Début de génération détecté");
+    }
+
+    // Détecter la fin : prompt interactif ">" ou double saut de ligne
+    if (
+      hasStartedGenerating &&
+      (chunk.includes("\n>") || chunk.endsWith(">\n") || chunk.trim() === ">")
+    ) {
+      console.log("🔚 Fin de génération détectée, arrêt du processus");
+      llamaProcess.kill("SIGTERM");
+
+      // Traiter et envoyer la réponse
+      processAndSendResponse();
+    }
   });
 
   llamaProcess.stderr.on("data", (data) => {
     const chunk = data.toString();
-    console.log("⚠️ STDERR chunk:", chunk); // DEBUG
     errorOutput += chunk;
+
+    // Ne logger que les erreurs importantes
+    if (chunk.includes("error:") || chunk.includes("Error:")) {
+      console.log("⚠️ STDERR:", chunk);
+    }
   });
 
-  llamaProcess.on("close", (code) => {
-    console.log("🔚 Processus fermé avec code:", code); // DEBUG
-    console.log("📄 Réponse brute complète:", JSON.stringify(response)); // DEBUG
-    console.log("⚠️ Erreurs complètes:", JSON.stringify(errorOutput)); // DEBUG
-
+  const processAndSendResponse = () => {
     if (responseSent) return;
 
-    if (code === 0) {
-      // Nettoyer la réponse
-      const cleanResponse = response
-        .replace(/^.*?llama backend init.*?\n/s, "")
-        .replace(/.*?main: load the model.*?\n/g, "")
-        .replace(/.*?build:.*?\n/g, "")
-        .replace(/llama_perf_context_print.*$/s, "")
-        .trim();
+    // Nettoyer la réponse
+    let cleanResponse = response
+      // Supprimer tout jusqu'à <|assistant|>
+      .replace(/^.*?<\|assistant\|>\s*/s, "")
+      // Supprimer le prompt final et tout après
+      .replace(/\n?>\s*$/s, "")
+      .replace(/\n+>\s*$/s, "")
+      // Nettoyer les espaces
+      .trim();
 
-      console.log("✨ Réponse nettoyée:", JSON.stringify(cleanResponse)); // DEBUG
+    console.log("✨ Réponse nettoyée:", JSON.stringify(cleanResponse));
 
-      if (cleanResponse) {
-        sendResponse(200, { response: cleanResponse });
-      } else {
-        sendResponse(500, { error: "Réponse vide après nettoyage" });
-      }
+    if (cleanResponse && cleanResponse.length > 0) {
+      sendResponse(200, { response: cleanResponse });
     } else {
-      console.error("❌ Erreur llama.cpp (code " + code + "):", errorOutput);
-      sendResponse(500, {
-        error: "Erreur lors de la génération de la réponse",
-      });
+      sendResponse(500, { error: "Réponse vide après nettoyage" });
+    }
+  };
+
+  llamaProcess.on("close", (code) => {
+    console.log("🔚 Processus fermé avec code:", code);
+
+    if (!responseSent) {
+      processAndSendResponse();
     }
   });
 
@@ -233,17 +256,28 @@ app.post("/api/chat", requireAuth, (req, res) => {
     });
   });
 
-  // Timeout de 60 secondes
+  // Timeout de sécurité à 60 secondes
   const timeoutId = setTimeout(() => {
     if (!responseSent) {
-      console.log("⏰ Timeout atteint"); // DEBUG
-      llamaProcess.kill("SIGTERM");
+      console.log("⏰ Timeout atteint");
+      llamaProcess.kill("SIGKILL");
       sendResponse(408, { error: "Timeout - réponse trop longue" });
     }
   }, 60000);
 
+  // Timeout additionnel basé sur l'inactivité (pas de nouveaux chunks depuis 10s)
+  const inactivityTimeout = setInterval(() => {
+    if (hasStartedGenerating && Date.now() - lastChunkTime > 10000) {
+      console.log("💤 Inactivité détectée, arrêt du processus");
+      llamaProcess.kill("SIGTERM");
+      processAndSendResponse();
+      clearInterval(inactivityTimeout);
+    }
+  }, 2000);
+
   llamaProcess.on("close", () => {
     clearTimeout(timeoutId);
+    clearInterval(inactivityTimeout);
   });
 });
 
