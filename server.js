@@ -134,30 +134,32 @@ app.delete("/api/preprompts/:id", requireAuth, (req, res) => {
   }
 });
 
-// Route pour le chat
+// Route pour le chat (VERSION DEBUG)
 app.post("/api/chat", requireAuth, (req, res) => {
   const { message, preprompt = "" } = req.body;
+
+  console.log("🚀 Nouvelle requête chat:", { message, preprompt }); // DEBUG
 
   if (!message) {
     return res.status(400).json({ error: "Message requis" });
   }
 
-  // Flag pour éviter les réponses multiples
   let responseSent = false;
 
-  // Fonction helper pour envoyer une réponse unique
   const sendResponse = (statusCode, data) => {
     if (!responseSent) {
       responseSent = true;
+      console.log("📤 Envoi réponse:", { statusCode, data }); // DEBUG
       res.status(statusCode).json(data);
     }
   };
 
   // Construire le prompt complet
   const fullPrompt = preprompt ? `${preprompt}\n\nUser: ${message}` : message;
+  console.log("📝 Prompt final:", fullPrompt); // DEBUG
 
-  // Lancer llama.cpp
-  const llamaProcess = spawn(config.llamaCppPath, [
+  // Arguments pour llama.cpp
+  const args = [
     "-m",
     config.modelPath,
     "-p",
@@ -169,21 +171,34 @@ app.post("/api/chat", requireAuth, (req, res) => {
     "--temp",
     "0.7",
     "--no-display-prompt",
-  ]);
+  ];
+
+  console.log("🔧 Commande llama.cpp:", config.llamaCppPath, args); // DEBUG
+
+  // Lancer llama.cpp
+  const llamaProcess = spawn(config.llamaCppPath, args);
 
   let response = "";
   let errorOutput = "";
 
   llamaProcess.stdout.on("data", (data) => {
-    response += data.toString();
+    const chunk = data.toString();
+    console.log("📥 STDOUT chunk:", chunk); // DEBUG
+    response += chunk;
   });
 
   llamaProcess.stderr.on("data", (data) => {
-    errorOutput += data.toString();
+    const chunk = data.toString();
+    console.log("⚠️ STDERR chunk:", chunk); // DEBUG
+    errorOutput += chunk;
   });
 
   llamaProcess.on("close", (code) => {
-    if (responseSent) return; // Éviter les réponses multiples
+    console.log("🔚 Processus fermé avec code:", code); // DEBUG
+    console.log("📄 Réponse brute complète:", JSON.stringify(response)); // DEBUG
+    console.log("⚠️ Erreurs complètes:", JSON.stringify(errorOutput)); // DEBUG
+
+    if (responseSent) return;
 
     if (code === 0) {
       // Nettoyer la réponse
@@ -194,9 +209,15 @@ app.post("/api/chat", requireAuth, (req, res) => {
         .replace(/llama_perf_context_print.*$/s, "")
         .trim();
 
-      sendResponse(200, { response: cleanResponse });
+      console.log("✨ Réponse nettoyée:", JSON.stringify(cleanResponse)); // DEBUG
+
+      if (cleanResponse) {
+        sendResponse(200, { response: cleanResponse });
+      } else {
+        sendResponse(500, { error: "Réponse vide après nettoyage" });
+      }
     } else {
-      console.error("Erreur llama.cpp:", errorOutput);
+      console.error("❌ Erreur llama.cpp (code " + code + "):", errorOutput);
       sendResponse(500, {
         error: "Erreur lors de la génération de la réponse",
       });
@@ -204,19 +225,21 @@ app.post("/api/chat", requireAuth, (req, res) => {
   });
 
   llamaProcess.on("error", (error) => {
-    console.error("Erreur lors du lancement de llama.cpp:", error);
-    sendResponse(500, { error: "Impossible de lancer le modèle" });
+    console.error("💥 Erreur lors du lancement de llama.cpp:", error);
+    sendResponse(500, {
+      error: "Impossible de lancer le modèle: " + error.message,
+    });
   });
 
   // Timeout de 60 secondes
   const timeoutId = setTimeout(() => {
     if (!responseSent) {
+      console.log("⏰ Timeout atteint"); // DEBUG
       llamaProcess.kill("SIGTERM");
       sendResponse(408, { error: "Timeout - réponse trop longue" });
     }
   }, 60000);
 
-  // Nettoyer le timeout si la réponse arrive avant
   llamaProcess.on("close", () => {
     clearTimeout(timeoutId);
   });
