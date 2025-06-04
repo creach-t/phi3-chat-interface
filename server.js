@@ -10,8 +10,8 @@ const cors = require("cors");
 require("dotenv").config();
 
 const app = express();
-const PORT = process.env.PORT;
-const IP_ADDRESS = process.env.IP_ADDRESS;
+const PORT = process.env.PORT || 3000;
+const IP_ADDRESS = process.env.IP_ADDRESS || "localhost";
 
 // Configuration
 const config = {
@@ -19,6 +19,16 @@ const config = {
   passwordHash: "password123",
   llamaCppPath: "../../llama.cpp/build/bin/llama-cli",
   modelPath: "../../llama.cpp/models/Phi-3-mini-4k-instruct-Q2_K.gguf",
+};
+
+// Paramètres par défaut du modèle
+const defaultModelParams = {
+  temperature: 0.7,
+  maxTokens: 512,
+  topP: 0.95,
+  contextSize: 2048,
+  repeatPenalty: 1.1,
+  seed: -1, // -1 pour aléatoire
 };
 
 // Middleware
@@ -59,6 +69,30 @@ function savePreprompts(preprompts) {
     return true;
   } catch (error) {
     console.error("Erreur lors de la sauvegarde des preprompts:", error);
+    return false;
+  }
+}
+
+// Charger les paramètres du modèle
+function loadModelParams() {
+  try {
+    if (fs.existsSync("model-params.json")) {
+      const saved = JSON.parse(fs.readFileSync("model-params.json", "utf8"));
+      return { ...defaultModelParams, ...saved };
+    }
+  } catch (error) {
+    console.error("Erreur lors du chargement des paramètres:", error);
+  }
+  return defaultModelParams;
+}
+
+// Sauvegarder les paramètres du modèle
+function saveModelParams(params) {
+  try {
+    fs.writeFileSync("model-params.json", JSON.stringify(params, null, 2));
+    return true;
+  } catch (error) {
+    console.error("Erreur lors de la sauvegarde des paramètres:", error);
     return false;
   }
 }
@@ -134,29 +168,84 @@ app.delete("/api/preprompts/:id", requireAuth, (req, res) => {
   }
 });
 
-// Version DEBUG temporaire pour comprendre le problème
-app.post("/api/chat", requireAuth, (req, res) => {
-  const { message, preprompt = "" } = req.body;
+// Routes pour les paramètres du modèle
+app.get("/api/model-params", requireAuth, (req, res) => {
+  const params = loadModelParams();
+  res.json(params);
+});
 
-  console.log("🚀 DEBUT DEBUG");
+app.post("/api/model-params", requireAuth, (req, res) => {
+  const { temperature, maxTokens, topP, contextSize, repeatPenalty, seed } =
+    req.body;
+
+  // Validation des paramètres
+  const params = {
+    temperature: Math.max(
+      0.1,
+      Math.min(2.0, parseFloat(temperature) || defaultModelParams.temperature)
+    ),
+    maxTokens: Math.max(
+      1,
+      Math.min(4096, parseInt(maxTokens) || defaultModelParams.maxTokens)
+    ),
+    topP: Math.max(
+      0.1,
+      Math.min(1.0, parseFloat(topP) || defaultModelParams.topP)
+    ),
+    contextSize: Math.max(
+      256,
+      Math.min(8192, parseInt(contextSize) || defaultModelParams.contextSize)
+    ),
+    repeatPenalty: Math.max(
+      0.8,
+      Math.min(
+        1.5,
+        parseFloat(repeatPenalty) || defaultModelParams.repeatPenalty
+      )
+    ),
+    seed: parseInt(seed) || -1,
+  };
+
+  if (saveModelParams(params)) {
+    res.json(params);
+  } else {
+    res
+      .status(500)
+      .json({ error: "Erreur lors de la sauvegarde des paramètres" });
+  }
+});
+
+// Reset des paramètres aux valeurs par défaut
+app.post("/api/model-params/reset", requireAuth, (req, res) => {
+  if (saveModelParams(defaultModelParams)) {
+    res.json(defaultModelParams);
+  } else {
+    res.status(500).json({ error: "Erreur lors du reset" });
+  }
+});
+
+// Route de chat améliorée avec paramètres dynamiques
+app.post("/api/chat", requireAuth, (req, res) => {
+  const { message, preprompt = "", modelParams } = req.body;
+
+  console.log("🚀 DEBUT CHAT");
   console.log("Message:", message);
   console.log("Preprompt length:", preprompt.length);
-  console.log("Preprompt preview:", preprompt.substring(0, 100));
 
   if (!message) {
     return res.status(400).json({ error: "Message requis" });
   }
+
+  // Charger les paramètres (utiliser ceux envoyés ou ceux sauvegardés)
+  const currentParams = modelParams || loadModelParams();
+  console.log("🔧 Paramètres utilisés:", currentParams);
 
   let responseSent = false;
 
   const sendResponse = (statusCode, data) => {
     if (!responseSent) {
       responseSent = true;
-      console.log(
-        "📤 ENVOI REPONSE:",
-        statusCode,
-        JSON.stringify(data).substring(0, 100)
-      );
+      console.log("📤 ENVOI REPONSE:", statusCode);
       res.status(statusCode).json(data);
     }
   };
@@ -166,41 +255,55 @@ app.post("/api/chat", requireAuth, (req, res) => {
     : `User: ${message}\nAssistant:`;
 
   console.log("📝 Prompt final length:", fullPrompt.length);
-  console.log("📝 Prompt final:", fullPrompt);
 
+  // Construire les arguments llama.cpp avec les paramètres dynamiques
   const args = [
     "-m",
     config.modelPath,
     "-p",
     fullPrompt,
     "-c",
-    preprompt.length > 50 ? "1024" : "2048",
+    currentParams.contextSize.toString(),
     "-n",
-    "256", // Très court pour tester
+    currentParams.maxTokens.toString(),
     "--temp",
-    "0.5",
+    currentParams.temperature.toString(),
+    "--top-p",
+    currentParams.topP.toString(),
+    "--repeat-penalty",
+    currentParams.repeatPenalty.toString(),
     "--no-display-prompt",
   ];
 
-  console.log("🔧 Lancement llama.cpp...");
+  // Ajouter le seed si différent de -1
+  if (currentParams.seed !== -1) {
+    args.push("--seed", currentParams.seed.toString());
+  }
+
+  console.log("🔧 Arguments llama.cpp:", args);
 
   const llamaProcess = spawn(config.llamaCppPath, args);
 
   let response = "";
   let errorOutput = "";
   let chunkCount = 0;
-  let lastChunkTime = Date.now();
 
   llamaProcess.stdout.on("data", (data) => {
     const chunk = data.toString();
     response += chunk;
-    lastChunkTime = Date.now();
     chunkCount++;
 
-    console.log(`📥 CHUNK ${chunkCount}:`, JSON.stringify(chunk));
+    console.log(
+      `📥 CHUNK ${chunkCount}:`,
+      JSON.stringify(chunk.substring(0, 50))
+    );
 
-    // Arrêt immédiat dès qu'on voit un ">"
-    if (chunk.includes(">")) {
+    // Arrêt si on détecte la fin
+    if (
+      chunk.includes(">") ||
+      chunk.includes("User:") ||
+      chunk.includes("Assistant:")
+    ) {
       console.log("🔚 ARRET DETECTE");
       llamaProcess.kill("SIGTERM");
       processAndSendResponse();
@@ -213,57 +316,35 @@ app.post("/api/chat", requireAuth, (req, res) => {
     console.log("⚠️ STDERR:", chunk.substring(0, 100));
   });
 
-  // Fonction processAndSendResponse améliorée pour votre route chat
   const processAndSendResponse = () => {
     if (responseSent) return;
 
-    // Nettoyage avancé de la réponse
+    // Nettoyage amélioré de la réponse
     let cleanResponse = response
-      // Supprimer les tokens de template
       .replace(/<\|assistant\|>/g, "")
       .replace(/<\|user\|>/g, "")
       .replace(/<\|system\|>/g, "")
       .replace(/<\|end\|>/g, "")
       .replace(/<\|endoftext\|>/g, "")
-      // Supprimer les prompts interactifs
       .replace(/\n\n?>\s*$/s, "")
       .replace(/>\s*$/s, "")
       .replace(/\nUser:\s*$/s, "")
       .replace(/\nAssistant:\s*$/s, "")
-      // Supprimer les doublons de phrases
       .replace(/(.{10,}?)\1+/g, "$1")
-      // Nettoyer les espaces multiples
       .replace(/\n{3,}/g, "\n\n")
       .replace(/\s{3,}/g, " ")
-      // Supprimer les débuts de réponse en anglais si suivi de français
-      .replace(/^(Hello|Hi|Bonjour).*(Je suis|J'ai|Comment)/s, "Je suis")
-      .replace(/^.*?(Bonjour|Je suis|J'ai le plaisir)/s, "$1")
-      // Nettoyer les espaces au début et à la fin
       .trim();
 
-    // Si la réponse contient encore de l'anglais, essayer de l'extraire
-    if (
-      cleanResponse.includes("English") ||
-      /\b(I am|you are|the|and|but)\b/.test(cleanResponse)
-    ) {
-      // Extraire seulement la partie française
-      const frenchPart = cleanResponse.match(/[A-Z][^.!?]*[a-z][^.!?]*[.!?]/);
-      if (frenchPart && frenchPart[0].length > 20) {
-        cleanResponse = frenchPart[0];
-      }
-    }
-
-    // Validation finale
-    if (cleanResponse.length < 5) {
-      console.log("⚠️ Réponse trop courte après nettoyage");
-      cleanResponse =
-        "Je suis désolé, je n'ai pas pu générer une réponse appropriée. Pouvez-vous reformuler votre question ?";
-    }
-
-    console.log("✨ Réponse nettoyée:", JSON.stringify(cleanResponse));
+    console.log(
+      "✨ Réponse nettoyée:",
+      JSON.stringify(cleanResponse.substring(0, 100))
+    );
 
     if (cleanResponse && cleanResponse.length > 0) {
-      sendResponse(200, { response: cleanResponse });
+      sendResponse(200, {
+        response: cleanResponse,
+        modelParams: currentParams,
+      });
     } else {
       sendResponse(500, {
         error: "Réponse vide après nettoyage",
@@ -284,21 +365,22 @@ app.post("/api/chat", requireAuth, (req, res) => {
     sendResponse(500, { error: "Erreur: " + error.message });
   });
 
-  // Timeout court pour debug
+  // Timeout adaptatif basé sur maxTokens
+  const timeout = Math.max(30000, currentParams.maxTokens * 100);
   setTimeout(() => {
     if (!responseSent) {
-      console.log("⏰ TIMEOUT DEBUG");
+      console.log("⏰ TIMEOUT");
       llamaProcess.kill("SIGKILL");
       sendResponse(408, {
         error: "Timeout",
         debug: {
           responseLength: response.length,
           chunkCount,
-          lastResponse: response.substring(-100),
+          timeout: timeout,
         },
       });
     }
-  }, 30000);
+  }, timeout);
 });
 
 // Route par défaut - servir l'index.html
@@ -312,7 +394,5 @@ app.listen(PORT, IP_ADDRESS, () => {
   console.log("Identifiants par défaut:");
   console.log("Username: admin");
   console.log("Password: password123");
+  console.log("Paramètres par défaut chargés:", loadModelParams());
 });
-
-// Générer un nouveau hash de mot de passe (à exécuter une fois pour changer le mot de passe)
-// bcrypt.hash('votre_nouveau_mot_de_passe', 10).then(hash => console.log('Nouveau hash:', hash));
