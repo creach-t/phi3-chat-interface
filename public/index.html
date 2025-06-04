@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phi-3 Chat Interface</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Page de connexion -->
+    <div id="login-page" class="page">
+        <div class="login-container">
+            <h1>🤖 Phi-3 Chat</h1>
+            <form id="login-form">
+                <input type="text" id="username" placeholder="Nom d'utilisateur" required>
+                <input type="password" id="password" placeholder="Mot de passe" required>
+                <button type="submit">Se connecter</button>
+            </form>
+            <div id="login-error" class="error"></div>
+        </div>
+    </div>
+
+    <!-- Interface principale -->
+    <div id="chat-page" class="page hidden">
+        <header>
+            <h1>🤖 Phi-3 Chat</h1>
+            <div class="header-controls">
+                <button id="preprompts-btn">📝 Preprompts</button>
+                <button id="logout-btn">🚪 Déconnexion</button>
+            </div>
+        </header>
+
+        <div class="main-container">
+            <!-- Sidebar des preprompts -->
+            <div id="preprompts-sidebar" class="sidebar hidden">
+                <div class="sidebar-header">
+                    <h3>📝 Preprompts</h3>
+                    <button id="add-preprompt-btn">+ Ajouter</button>
+                </div>
+                <div id="preprompts-list"></div>
+            </div>
+
+            <!-- Zone de chat -->
+            <div class="chat-container">
+                <div class="preprompt-bar">
+                    <select id="preprompt-select">
+                        <option value="">Aucun preprompt</option>
+                    </select>
+                    <span id="current-preprompt"></span>
+                </div>
+
+                <div id="chat-messages" class="chat-messages"></div>
+
+                <div class="input-container">
+                    <textarea id="message-input" placeholder="Tapez votre message..." rows="3"></textarea>
+                    <button id="send-btn">Envoyer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal pour ajouter un preprompt -->
+    <div id="preprompt-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Nouveau Preprompt</h3>
+                <button id="close-modal">&times;</button>
+            </div>
+            <form id="preprompt-form">
+                <input type="text" id="preprompt-name" placeholder="Nom du preprompt" required>
+                <textarea id="preprompt-content" placeholder="Contenu du preprompt..." rows="6" required></textarea>
+                <div class="modal-buttons">
+                    <button type="button" id="cancel-preprompt">Annuler</button>
+                    <button type="submit">Sauvegarder</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
