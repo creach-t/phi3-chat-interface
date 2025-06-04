@@ -161,11 +161,9 @@ app.post("/api/chat", requireAuth, (req, res) => {
     }
   };
 
-  // TEST: Prompt très simple d'abord
-  const fullPrompt =
-    preprompt.length > 0
-      ? `${preprompt.substring(0, 100)}\n\nUser: ${message}\nAssistant:`
-      : `User: ${message}\nAssistant:`;
+  const fullPrompt = preprompt.trim()
+    ? `${preprompt.trim()}\n\nUser: ${message}\nAssistant:`
+    : `User: ${message}\nAssistant:`;
 
   console.log("📝 Prompt final length:", fullPrompt.length);
   console.log("📝 Prompt final:", fullPrompt);
@@ -176,11 +174,11 @@ app.post("/api/chat", requireAuth, (req, res) => {
     "-p",
     fullPrompt,
     "-c",
-    "1024",
+    preprompt.length > 50 ? "1024" : "2048",
     "-n",
-    "128", // Très court pour tester
+    "256", // Très court pour tester
     "--temp",
-    "0.3",
+    "0.5",
     "--no-display-prompt",
   ];
 
@@ -215,26 +213,61 @@ app.post("/api/chat", requireAuth, (req, res) => {
     console.log("⚠️ STDERR:", chunk.substring(0, 100));
   });
 
+  // Fonction processAndSendResponse améliorée pour votre route chat
   const processAndSendResponse = () => {
     if (responseSent) return;
 
-    console.log("🔍 TRAITEMENT RESPONSE");
-    console.log("Response brute length:", response.length);
-    console.log("Response brute:", JSON.stringify(response));
-
+    // Nettoyage avancé de la réponse
     let cleanResponse = response
+      // Supprimer les tokens de template
+      .replace(/<\|assistant\|>/g, "")
+      .replace(/<\|user\|>/g, "")
+      .replace(/<\|system\|>/g, "")
+      .replace(/<\|end\|>/g, "")
+      .replace(/<\|endoftext\|>/g, "")
+      // Supprimer les prompts interactifs
       .replace(/\n\n?>\s*$/s, "")
       .replace(/>\s*$/s, "")
+      .replace(/\nUser:\s*$/s, "")
+      .replace(/\nAssistant:\s*$/s, "")
+      // Supprimer les doublons de phrases
+      .replace(/(.{10,}?)\1+/g, "$1")
+      // Nettoyer les espaces multiples
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/\s{3,}/g, " ")
+      // Supprimer les débuts de réponse en anglais si suivi de français
+      .replace(/^(Hello|Hi|Bonjour).*(Je suis|J'ai|Comment)/s, "Je suis")
+      .replace(/^.*?(Bonjour|Je suis|J'ai le plaisir)/s, "$1")
+      // Nettoyer les espaces au début et à la fin
       .trim();
 
-    console.log("Response nettoyée:", JSON.stringify(cleanResponse));
+    // Si la réponse contient encore de l'anglais, essayer de l'extraire
+    if (
+      cleanResponse.includes("English") ||
+      /\b(I am|you are|the|and|but)\b/.test(cleanResponse)
+    ) {
+      // Extraire seulement la partie française
+      const frenchPart = cleanResponse.match(/[A-Z][^.!?]*[a-z][^.!?]*[.!?]/);
+      if (frenchPart && frenchPart[0].length > 20) {
+        cleanResponse = frenchPart[0];
+      }
+    }
+
+    // Validation finale
+    if (cleanResponse.length < 5) {
+      console.log("⚠️ Réponse trop courte après nettoyage");
+      cleanResponse =
+        "Je suis désolé, je n'ai pas pu générer une réponse appropriée. Pouvez-vous reformuler votre question ?";
+    }
+
+    console.log("✨ Réponse nettoyée:", JSON.stringify(cleanResponse));
 
     if (cleanResponse && cleanResponse.length > 0) {
       sendResponse(200, { response: cleanResponse });
     } else {
       sendResponse(500, {
-        error: "Réponse vide",
-        debug: { responseLength: response.length, chunkCount },
+        error: "Réponse vide après nettoyage",
+        debug: response.substring(0, 200),
       });
     }
   };
