@@ -142,8 +142,10 @@ app.post("/api/chat", requireAuth, (req, res) => {
     return res.status(400).json({ error: "Message requis" });
   }
 
+  // Construire le prompt complet
   const fullPrompt = preprompt ? `${preprompt}\n\nUser: ${message}` : message;
 
+  // Lancer llama.cpp
   const llamaProcess = spawn(config.llamaCppPath, [
     "-m",
     config.modelPath,
@@ -160,7 +162,6 @@ app.post("/api/chat", requireAuth, (req, res) => {
 
   let response = "";
   let errorOutput = "";
-  let responded = false; // <-- FLAG
 
   llamaProcess.stdout.on("data", (data) => {
     response += data.toString();
@@ -171,11 +172,8 @@ app.post("/api/chat", requireAuth, (req, res) => {
   });
 
   llamaProcess.on("close", (code) => {
-    if (responded) return;
-
-    responded = true;
-
     if (code === 0) {
+      // Nettoyer la réponse
       const cleanResponse = response
         .replace(/^.*?llama backend init.*?\n/s, "")
         .replace(/.*?main: load the model.*?\n/g, "")
@@ -192,12 +190,10 @@ app.post("/api/chat", requireAuth, (req, res) => {
     }
   });
 
+  // Timeout de 60 secondes
   setTimeout(() => {
-    if (!responded) {
-      responded = true;
-      llamaProcess.kill();
-      res.status(408).json({ error: "Timeout - réponse trop longue" });
-    }
+    llamaProcess.kill();
+    res.status(408).json({ error: "Timeout - réponse trop longue" });
   }, 60000);
 });
 
