@@ -171,8 +171,8 @@ app.post("/api/chat", requireAuth, (req, res) => {
     "--temp",
     "0.7",
     "--no-display-prompt",
-    "--no-cnv",
-    "--simple-io",
+    "-i",
+    "--no-warmup",
   ];
 
   console.log("🔧 Commande llama.cpp:", config.llamaCppPath, args); // DEBUG
