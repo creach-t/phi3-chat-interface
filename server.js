@@ -190,22 +190,30 @@ app.post("/api/chat", requireAuth, (req, res) => {
 
     console.log("📥 STDOUT chunk:", JSON.stringify(chunk));
 
-    // Détecter le début de la génération de contenu utile
-    if (!hasStartedGenerating && chunk.includes("<|assistant|>")) {
+    // Détecter le début de la génération de contenu utile (première réponse non-vide)
+    if (
+      !hasStartedGenerating &&
+      chunk.trim().length > 0 &&
+      !chunk.includes("llama") &&
+      !chunk.includes("print_info")
+    ) {
       hasStartedGenerating = true;
       console.log("✨ Début de génération détecté");
     }
 
-    // Détecter la fin : prompt interactif ">" ou double saut de ligne
+    // Détecter la fin : prompt interactif ">"
     if (
-      hasStartedGenerating &&
-      (chunk.includes("\n>") || chunk.endsWith(">\n") || chunk.trim() === ">")
+      chunk.includes("\n>") ||
+      chunk.endsWith("\n>") ||
+      chunk === ">" ||
+      chunk.endsWith("> ") ||
+      chunk.includes("\n\n>")
     ) {
       console.log("🔚 Fin de génération détectée, arrêt du processus");
-      llamaProcess.kill("SIGTERM");
-
-      // Traiter et envoyer la réponse
-      processAndSendResponse();
+      setTimeout(() => {
+        llamaProcess.kill("SIGTERM");
+        processAndSendResponse();
+      }, 100); // Petit délai pour s'assurer qu'on a tout reçu
     }
   });
 
@@ -224,12 +232,10 @@ app.post("/api/chat", requireAuth, (req, res) => {
 
     // Nettoyer la réponse
     let cleanResponse = response
-      // Supprimer tout jusqu'à <|assistant|>
-      .replace(/^.*?<\|assistant\|>\s*/s, "")
       // Supprimer le prompt final et tout après
-      .replace(/\n?>\s*$/s, "")
-      .replace(/\n+>\s*$/s, "")
-      // Nettoyer les espaces
+      .replace(/\n\n?>\s*$/s, "")
+      .replace(/>\s*$/s, "")
+      // Nettoyer les espaces au début et à la fin
       .trim();
 
     console.log("✨ Réponse nettoyée:", JSON.stringify(cleanResponse));
@@ -265,15 +271,15 @@ app.post("/api/chat", requireAuth, (req, res) => {
     }
   }, 60000);
 
-  // Timeout additionnel basé sur l'inactivité (pas de nouveaux chunks depuis 10s)
+  // Timeout additionnel basé sur l'inactivité (pas de nouveaux chunks depuis 5s)
   const inactivityTimeout = setInterval(() => {
-    if (hasStartedGenerating && Date.now() - lastChunkTime > 10000) {
+    if (Date.now() - lastChunkTime > 5000) {
       console.log("💤 Inactivité détectée, arrêt du processus");
       llamaProcess.kill("SIGTERM");
       processAndSendResponse();
       clearInterval(inactivityTimeout);
     }
-  }, 2000);
+  }, 1000);
 
   llamaProcess.on("close", () => {
     clearTimeout(timeoutId);
