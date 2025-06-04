@@ -59,24 +59,65 @@
         </div>
     </div>
 
-    <!-- Modal pour ajouter un preprompt -->
-    <div id="preprompt-modal" class="modal hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Nouveau Preprompt</h3>
-                <button id="close-modal">&times;</button>
+<!-- Remplacer la section modal existante par ceci -->
+<div id="preprompt-modal" class="modal hidden">
+    <div class="modal-content">
+        <span id="close-modal" class="close">&times;</span>
+        <h2>Ajouter un Preprompt</h2>
+        
+        <!-- Suggestions rapides -->
+        <div class="suggestions-section">
+            <h3>Suggestions :</h3>
+            <div id="preprompt-suggestions" class="suggestions-container">
+                <!-- Les suggestions seront ajoutées ici par JavaScript -->
             </div>
-            <form id="preprompt-form">
-                <input type="text" id="preprompt-name" placeholder="Nom du preprompt" required>
-                <textarea id="preprompt-content" placeholder="Contenu du preprompt..." rows="6" required></textarea>
-                <div class="modal-buttons">
-                    <button type="button" id="cancel-preprompt">Annuler</button>
-                    <button type="submit">Sauvegarder</button>
-                </div>
-            </form>
         </div>
+        
+        <form id="preprompt-form">
+            <div class="form-group">
+                <label for="preprompt-name">Nom :</label>
+                <input type="text" id="preprompt-name" required maxlength="50">
+            </div>
+            
+            <div class="form-group">
+                <label for="preprompt-content">Contenu (max 100 car.) :</label>
+                <textarea id="preprompt-content" required maxlength="100" 
+                         placeholder="Tu es un psychologue. Réponds UNIQUEMENT en français. Sois empathique."
+                         oninput="updateCharCount(this)"></textarea>
+                <div class="char-counter">
+                    <span id="char-count">0</span>/100 caractères
+                    <span id="length-indicator" class="length-good">✓ Optimal</span>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" id="cancel-preprompt">Annuler</button>
+                <button type="submit">Enregistrer</button>
+            </div>
+        </form>
     </div>
-
+</div>
+    <script>
+        // Fonction pour mettre à jour le compteur de caractères
+        function updateCharCount(textarea) {
+            const count = textarea.value.length;
+            const countSpan = document.getElementById('char-count');
+            const indicator = document.getElementById('length-indicator');
+            
+            countSpan.textContent = count;
+            
+            if (count <= 60) {
+                indicator.textContent = '✓ Optimal';
+                indicator.className = 'length-good';
+            } else if (count <= 100) {
+                indicator.textContent = '⚠ Acceptable';
+                indicator.className = 'length-warning';
+            } else {
+                indicator.textContent = '✗ Trop long';
+                indicator.className = 'length-error';
+            }
+        }
+    </script>
     <script src="script.js"></script>
 </body>
 </html>

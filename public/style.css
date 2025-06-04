@@ -15,6 +15,51 @@ body {
     display: none !important;
 }
 
+.suggestions-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f5f5f5;
+    border-radius: 8px;
+}
+
+.suggestions-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.suggestion-btn {
+    padding: 8px 12px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background 0.2s;
+}
+
+.suggestion-btn:hover {
+    background: #0056b3;
+}
+
+.char-counter {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 5px;
+    font-size: 0.9em;
+}
+
+.length-good { color: green; }
+.length-warning { color: orange; }
+.length-error { color: red; }
+
+#preprompt-content {
+    resize: vertical;
+    min-height: 60px;
+}
+
 /* Page de connexion */
 .login-container {
     position: absolute;
