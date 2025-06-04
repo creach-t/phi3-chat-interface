@@ -17,8 +17,8 @@ const IP_ADDRESS = process.env.IP_ADDRESS;
 const config = {
   username: "admin",
   passwordHash: "password123",
-  llamaCppPath: "./llama.cpp/build/bin/llama-cli",
-  modelPath: "./llama.cpp/models/Phi-3-mini-4k-instruct-Q2_K.gguf",
+  llamaCppPath: "../../llama.cpp/build/bin/llama-cli",
+  modelPath: "../../llama.cpp/models/Phi-3-mini-4k-instruct-Q2_K.gguf",
 };
 
 // Middleware
