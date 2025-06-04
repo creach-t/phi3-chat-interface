@@ -134,11 +134,14 @@ app.delete("/api/preprompts/:id", requireAuth, (req, res) => {
   }
 });
 
-// Route pour le chat (VERSION AVEC DÉTECTION AUTO DE FIN)
+// Version DEBUG temporaire pour comprendre le problème
 app.post("/api/chat", requireAuth, (req, res) => {
   const { message, preprompt = "" } = req.body;
 
-  console.log("🚀 Nouvelle requête chat:", { message, preprompt });
+  console.log("🚀 DEBUT DEBUG");
+  console.log("Message:", message);
+  console.log("Preprompt length:", preprompt.length);
+  console.log("Preprompt preview:", preprompt.substring(0, 100));
 
   if (!message) {
     return res.status(400).json({ error: "Message requis" });
@@ -149,142 +152,120 @@ app.post("/api/chat", requireAuth, (req, res) => {
   const sendResponse = (statusCode, data) => {
     if (!responseSent) {
       responseSent = true;
-      console.log("📤 Envoi réponse:", { statusCode, data });
+      console.log(
+        "📤 ENVOI REPONSE:",
+        statusCode,
+        JSON.stringify(data).substring(0, 100)
+      );
       res.status(statusCode).json(data);
     }
   };
 
-  // Construire le prompt complet
-  const fullPrompt = preprompt ? `${preprompt}\n\nUser: ${message}` : message;
+  // TEST: Prompt très simple d'abord
+  const fullPrompt =
+    preprompt.length > 0
+      ? `${preprompt.substring(0, 100)}\n\nUser: ${message}\nAssistant:`
+      : `User: ${message}\nAssistant:`;
+
+  console.log("📝 Prompt final length:", fullPrompt.length);
   console.log("📝 Prompt final:", fullPrompt);
 
-  // Arguments pour llama.cpp
   const args = [
     "-m",
     config.modelPath,
     "-p",
     fullPrompt,
     "-c",
-    "2048",
+    "1024",
     "-n",
-    "512",
+    "128", // Très court pour tester
     "--temp",
-    "0.7",
+    "0.3",
     "--no-display-prompt",
   ];
 
-  console.log("🔧 Commande llama.cpp:", config.llamaCppPath, args);
+  console.log("🔧 Lancement llama.cpp...");
 
-  // Lancer llama.cpp
   const llamaProcess = spawn(config.llamaCppPath, args);
 
   let response = "";
   let errorOutput = "";
-  let hasStartedGenerating = false;
+  let chunkCount = 0;
   let lastChunkTime = Date.now();
 
   llamaProcess.stdout.on("data", (data) => {
     const chunk = data.toString();
     response += chunk;
     lastChunkTime = Date.now();
+    chunkCount++;
 
-    console.log("📥 STDOUT chunk:", JSON.stringify(chunk));
+    console.log(`📥 CHUNK ${chunkCount}:`, JSON.stringify(chunk));
 
-    // Détecter le début de la génération de contenu utile (première réponse non-vide)
-    if (
-      !hasStartedGenerating &&
-      chunk.trim().length > 0 &&
-      !chunk.includes("llama") &&
-      !chunk.includes("print_info")
-    ) {
-      hasStartedGenerating = true;
-      console.log("✨ Début de génération détecté");
-    }
-
-    // Détecter la fin : prompt interactif ">"
-    if (
-      chunk.includes("\n>") ||
-      chunk.endsWith("\n>") ||
-      chunk === ">" ||
-      chunk.endsWith("> ") ||
-      chunk.includes("\n\n>")
-    ) {
-      console.log("🔚 Fin de génération détectée, arrêt du processus");
-      setTimeout(() => {
-        llamaProcess.kill("SIGTERM");
-        processAndSendResponse();
-      }, 100); // Petit délai pour s'assurer qu'on a tout reçu
+    // Arrêt immédiat dès qu'on voit un ">"
+    if (chunk.includes(">")) {
+      console.log("🔚 ARRET DETECTE");
+      llamaProcess.kill("SIGTERM");
+      processAndSendResponse();
     }
   });
 
   llamaProcess.stderr.on("data", (data) => {
     const chunk = data.toString();
     errorOutput += chunk;
-
-    // Ne logger que les erreurs importantes
-    if (chunk.includes("error:") || chunk.includes("Error:")) {
-      console.log("⚠️ STDERR:", chunk);
-    }
+    console.log("⚠️ STDERR:", chunk.substring(0, 100));
   });
 
   const processAndSendResponse = () => {
     if (responseSent) return;
 
-    // Nettoyer la réponse
+    console.log("🔍 TRAITEMENT RESPONSE");
+    console.log("Response brute length:", response.length);
+    console.log("Response brute:", JSON.stringify(response));
+
     let cleanResponse = response
-      // Supprimer le prompt final et tout après
       .replace(/\n\n?>\s*$/s, "")
       .replace(/>\s*$/s, "")
-      // Nettoyer les espaces au début et à la fin
       .trim();
 
-    console.log("✨ Réponse nettoyée:", JSON.stringify(cleanResponse));
+    console.log("Response nettoyée:", JSON.stringify(cleanResponse));
 
     if (cleanResponse && cleanResponse.length > 0) {
       sendResponse(200, { response: cleanResponse });
     } else {
-      sendResponse(500, { error: "Réponse vide après nettoyage" });
+      sendResponse(500, {
+        error: "Réponse vide",
+        debug: { responseLength: response.length, chunkCount },
+      });
     }
   };
 
   llamaProcess.on("close", (code) => {
-    console.log("🔚 Processus fermé avec code:", code);
-
+    console.log("🔚 CLOSE avec code:", code);
     if (!responseSent) {
       processAndSendResponse();
     }
   });
 
   llamaProcess.on("error", (error) => {
-    console.error("💥 Erreur lors du lancement de llama.cpp:", error);
-    sendResponse(500, {
-      error: "Impossible de lancer le modèle: " + error.message,
-    });
+    console.error("💥 ERREUR:", error);
+    sendResponse(500, { error: "Erreur: " + error.message });
   });
 
-  // Timeout de sécurité à 60 secondes
-  const timeoutId = setTimeout(() => {
+  // Timeout court pour debug
+  setTimeout(() => {
     if (!responseSent) {
-      console.log("⏰ Timeout atteint");
+      console.log("⏰ TIMEOUT DEBUG");
       llamaProcess.kill("SIGKILL");
-      sendResponse(408, { error: "Timeout - réponse trop longue" });
+      sendResponse(408, {
+        error: "Timeout",
+        debug: {
+          responseLength: response.length,
+          chunkCount,
+          lastResponse: response.substring(-100),
+        },
+      });
     }
-  }, 60000);
-
-  // Timeout additionnel basé sur l'inactivité (pas de nouveaux chunks depuis 5s)
-  const inactivityTimeout = setInterval(() => {
-    if (Date.now() - lastChunkTime > 5000) {
-      console.log("💤 Inactivité détectée, arrêt du processus");
-      llamaProcess.kill("SIGTERM");
-      processAndSendResponse();
-      clearInterval(inactivityTimeout);
-    }
-  }, 1000);
-
-  llamaProcess.on("close", () => {
-    clearTimeout(timeoutId);
-    clearInterval(inactivityTimeout);
-  });
+  }, 30000);
 });
 
 // Route par défaut - servir l'index.html
