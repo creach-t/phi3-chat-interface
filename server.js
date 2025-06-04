@@ -5,16 +5,18 @@ const bodyParser = require("body-parser");
 const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const cors = require("cors");
 
 require("dotenv").config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
+const IP_ADDRESS = process.env.IP_ADDRESS;
 
 // Configuration
 const config = {
   username: "admin",
-  passwordHash: "$2b$10$8K1p/a0dF2h5j6k8l9M0n.O1P2Q3R4S5T6U7V8W9X0Y1Z2a3b4c5d6", // mot de passe: "password123"
+  passwordHash: "password123",
   llamaCppPath: "./build/bin/llama-cli",
   modelPath: "./models/Phi-3-mini-4k-instruct-Q2_K.gguf",
 };
@@ -23,6 +25,12 @@ const config = {
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
+app.use(
+  cors({
+    origin: `http://${IP_ADDRESS}:${PORT}`,
+    credentials: true,
+  })
+);
 app.use(
   session({
     secret: "phi3-secret-key-change-this",
@@ -68,10 +76,7 @@ function requireAuth(req, res, next) {
 app.post("/api/login", async (req, res) => {
   const { username, password } = req.body;
 
-  if (
-    username === config.username &&
-    (await bcrypt.compare(password, config.passwordHash))
-  ) {
+  if (username === config.username && password === config.passwordHash) {
     req.session.authenticated = true;
     res.json({ success: true });
   } else {
@@ -198,10 +203,8 @@ app.get("/", (req, res) => {
 });
 
 // Démarrer le serveur
-app.listen(process.env.PORT, process.env.IP_ADDRESS, () => {
-  console.log(
-    `Serveur démarré sur http://${process.env.IP_ADDRESS}:${process.env.PORT}`
-  );
+app.listen(PORT, IP_ADDRESS, () => {
+  console.log(`Serveur démarré sur http://${IP_ADDRESS}:${PORT}`);
   console.log("Identifiants par défaut:");
   console.log("Username: admin");
   console.log("Password: password123");
