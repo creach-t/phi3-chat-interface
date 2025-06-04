@@ -142,6 +142,17 @@ app.post("/api/chat", requireAuth, (req, res) => {
     return res.status(400).json({ error: "Message requis" });
   }
 
+  // Flag pour éviter les réponses multiples
+  let responseSent = false;
+
+  // Fonction helper pour envoyer une réponse unique
+  const sendResponse = (statusCode, data) => {
+    if (!responseSent) {
+      responseSent = true;
+      res.status(statusCode).json(data);
+    }
+  };
+
   // Construire le prompt complet
   const fullPrompt = preprompt ? `${preprompt}\n\nUser: ${message}` : message;
 
@@ -172,6 +183,8 @@ app.post("/api/chat", requireAuth, (req, res) => {
   });
 
   llamaProcess.on("close", (code) => {
+    if (responseSent) return; // Éviter les réponses multiples
+
     if (code === 0) {
       // Nettoyer la réponse
       const cleanResponse = response
@@ -181,20 +194,32 @@ app.post("/api/chat", requireAuth, (req, res) => {
         .replace(/llama_perf_context_print.*$/s, "")
         .trim();
 
-      res.json({ response: cleanResponse });
+      sendResponse(200, { response: cleanResponse });
     } else {
       console.error("Erreur llama.cpp:", errorOutput);
-      res
-        .status(500)
-        .json({ error: "Erreur lors de la génération de la réponse" });
+      sendResponse(500, {
+        error: "Erreur lors de la génération de la réponse",
+      });
     }
   });
 
+  llamaProcess.on("error", (error) => {
+    console.error("Erreur lors du lancement de llama.cpp:", error);
+    sendResponse(500, { error: "Impossible de lancer le modèle" });
+  });
+
   // Timeout de 60 secondes
-  setTimeout(() => {
-    llamaProcess.kill();
-    res.status(408).json({ error: "Timeout - réponse trop longue" });
+  const timeoutId = setTimeout(() => {
+    if (!responseSent) {
+      llamaProcess.kill("SIGTERM");
+      sendResponse(408, { error: "Timeout - réponse trop longue" });
+    }
   }, 60000);
+
+  // Nettoyer le timeout si la réponse arrive avant
+  llamaProcess.on("close", () => {
+    clearTimeout(timeoutId);
+  });
 });
 
 // Route par défaut - servir l'index.html
