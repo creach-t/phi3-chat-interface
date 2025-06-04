@@ -197,10 +197,11 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-
 // Démarrer le serveur
-app.listen(process.env.PORT, process.env.IP_ADRESS, () => {
-  console.log(`Serveur démarré sur http://${process.env.IP_ADRESS}:${process.env.PORT}`);
+app.listen(process.env.PORT, process.env.IP_ADDRESS, () => {
+  console.log(
+    `Serveur démarré sur http://${process.env.IP_ADDRESS}:${process.env.PORT}`
+  );
   console.log("Identifiants par défaut:");
   console.log("Username: admin");
   console.log("Password: password123");
