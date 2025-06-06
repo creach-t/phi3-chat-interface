@@ -1,4 +1,4 @@
-import { utils } from './utils.js';
+import { utils } from "./utils.js";
 
 export class PrepromptsManager {
   constructor(app) {
@@ -6,45 +6,67 @@ export class PrepromptsManager {
     this.suggestions = [
       {
         title: "Assistant français",
-        content: "Tu es un assistant IA qui répond toujours en français de manière polie et professionnelle.",
+        content:
+          "Tu es un assistant IA qui répond toujours en français de manière polie et professionnelle.",
       },
       {
         title: "Expert en code",
-        content: "Tu es un expert en programmation. Fournis des réponses techniques précises avec des exemples de code.",
+        content:
+          "Tu es un expert en programmation. Fournis des réponses techniques précises avec des exemples de code.",
       },
       {
         title: "Tuteur pédagogique",
-        content: "Tu es un tuteur patient qui explique les concepts de manière simple avec des exemples concrets.",
+        content:
+          "Tu es un tuteur patient qui explique les concepts de manière simple avec des exemples concrets.",
       },
       {
         title: "Créatif et artistique",
-        content: "Tu es un assistant créatif qui aide avec l'écriture, les idées artistiques et l'inspiration.",
+        content:
+          "Tu es un assistant créatif qui aide avec l'écriture, les idées artistiques et l'inspiration.",
       },
       {
         title: "Analyste de données",
-        content: "Tu es un expert en analyse de données qui aide à interpréter les chiffres et les tendances.",
+        content:
+          "Tu es un expert en analyse de données qui aide à interpréter les chiffres et les tendances.",
       },
       {
         title: "Coach personnel",
-        content: "Tu es un coach bienveillant qui aide à atteindre les objectifs personnels et professionnels.",
+        content:
+          "Tu es un coach bienveillant qui aide à atteindre les objectifs personnels et professionnels.",
       },
     ];
   }
 
   initializeListeners() {
-    document.getElementById("add-preprompt-btn")?.addEventListener("click", () => this.showModal());
-    document.getElementById("close-modal")?.addEventListener("click", () => this.hideModal());
-    document.getElementById("cancel-preprompt")?.addEventListener("click", () => this.hideModal());
-    document.getElementById("preprompt-form")?.addEventListener("submit", (e) => this.handleAddPreprompt(e));
-    document.getElementById("preprompt-select")?.addEventListener("change", () => this.handlePrepromptChange());
+    document
+      .getElementById("add-preprompt-btn")
+      ?.addEventListener("click", () => this.showModal());
+    document
+      .getElementById("close-modal")
+      ?.addEventListener("click", () => this.hideModal());
+    document
+      .getElementById("cancel-preprompt")
+      ?.addEventListener("click", () => this.hideModal());
+    document
+      .getElementById("preprompt-form")
+      ?.addEventListener("submit", (e) => this.handleAddPreprompt(e));
+    document
+      .getElementById("preprompt-select")
+      ?.addEventListener("change", () => this.handlePrepromptChange());
 
     this.loadSuggestions();
   }
 
   async loadPreprompts() {
     try {
-      const response = await fetch("/api/preprompts", { credentials: "include" });
-      const preprompts = await response.json();
+      const response = await fetch("/api/preprompts", {
+        credentials: "include",
+      });
+      const json = await response.json();
+
+      const preprompts = Array.isArray(json.preprompts) ? json.preprompts : [];
+      console.log("Chargement des preprompts:", json);
+
       this.app.state.preprompts = preprompts;
       this.updateUI();
       console.log("✅ Preprompts chargés:", preprompts.length);
@@ -79,12 +101,18 @@ export class PrepromptsManager {
     item.className = "preprompt-item";
     item.innerHTML = `
       <div class="preprompt-name">${utils.escapeHtml(preprompt.name)}</div>
-      <div class="preprompt-content">${utils.escapeHtml(preprompt.content)}</div>
+      <div class="preprompt-content">${utils.escapeHtml(
+        preprompt.content
+      )}</div>
       <div class="preprompt-actions">
-        <button class="btn-icon" onclick="window.selectPreprompt('${preprompt.id}')">
+        <button class="btn-icon" onclick="window.selectPreprompt('${
+          preprompt.id
+        }')">
           <i class="fas fa-check"></i>
         </button>
-        <button class="btn-icon delete" onclick="window.deletePreprompt('${preprompt.id}')">
+        <button class="btn-icon delete" onclick="window.deletePreprompt('${
+          preprompt.id
+        }')">
           <i class="fas fa-trash"></i>
         </button>
       </div>
@@ -121,7 +149,9 @@ export class PrepromptsManager {
 
     const selectedId = select.value;
     if (selectedId) {
-      const preprompt = this.app.state.preprompts.find((p) => p.id === selectedId);
+      const preprompt = this.app.state.preprompts.find(
+        (p) => p.id === selectedId
+      );
       if (preprompt) {
         this.app.state.currentPreprompt = preprompt.content;
         currentDiv.textContent = `Actuel: ${preprompt.name}`;
@@ -141,8 +171,12 @@ export class PrepromptsManager {
       const card = document.createElement("div");
       card.className = "suggestion-card";
       card.innerHTML = `
-        <div class="suggestion-title">${utils.escapeHtml(suggestion.title)}</div>
-        <div class="suggestion-content">${utils.escapeHtml(suggestion.content)}</div>
+        <div class="suggestion-title">${utils.escapeHtml(
+          suggestion.title
+        )}</div>
+        <div class="suggestion-content">${utils.escapeHtml(
+          suggestion.content
+        )}</div>
       `;
       card.onclick = () => {
         document.getElementById("preprompt-name").value = suggestion.title;

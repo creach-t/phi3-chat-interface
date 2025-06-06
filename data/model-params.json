@@ -1,0 +1,8 @@
+{
+  "temperature": 1.3,
+  "maxTokens": 300,
+  "topP": 0.75,
+  "contextSize": 4864,
+  "repeatPenalty": 1.2,
+  "seed": -1
+}

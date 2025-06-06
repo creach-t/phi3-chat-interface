@@ -57,6 +57,8 @@ export class ModelParamsManager {
   updateStatusDisplay() {
     const statusElement = document.getElementById("current-params");
     if (statusElement) {
+      console.log("Params to display:", this.app.state.modelParams);
+
       statusElement.textContent = `T: ${this.app.state.modelParams.temperature} | Tokens: ${this.app.state.modelParams.maxTokens}`;
     }
   }
@@ -66,43 +68,62 @@ export class ModelParamsManager {
       const response = await fetch("/api/model-params", {
         credentials: "include",
       });
-      const params = await response.json();
-      this.app.state.modelParams = params;
+      const data = await response.json();
+
+      // 🔧 FIX: Extract modelParams from the response
+      this.app.state.modelParams = data.modelParams || data;
+
       this.updateUI();
-      console.log("✅ Paramètres du modèle chargés:", params);
+      console.log(
+        "✅ Paramètres du modèle chargés:",
+        this.app.state.modelParams
+      );
     } catch (error) {
       console.error("Erreur lors du chargement des paramètres:", error);
     }
   }
 
   updateUI() {
-    document.getElementById("temperature-slider").value =
-      this.app.state.modelParams.temperature;
-    document.getElementById("temperature-value").textContent =
-      this.app.state.modelParams.temperature;
+    // 🔧 FIX: Add safety checks for modelParams
+    if (!this.app.state.modelParams) {
+      console.warn("No modelParams to update UI with");
+      return;
+    }
 
-    document.getElementById("max-tokens-slider").value =
-      this.app.state.modelParams.maxTokens;
-    document.getElementById("max-tokens-value").textContent =
-      this.app.state.modelParams.maxTokens;
+    const params = this.app.state.modelParams;
 
-    document.getElementById("top-p-slider").value =
-      this.app.state.modelParams.topP;
-    document.getElementById("top-p-value").textContent =
-      this.app.state.modelParams.topP;
+    // Update sliders and displays with safety checks
+    this.updateSlider("temperature", params.temperature);
+    this.updateSlider("max-tokens", params.maxTokens, "max-tokens");
+    this.updateSlider("top-p", params.topP, "top-p");
+    this.updateSlider("context-size", params.contextSize, "context-size");
+    this.updateSlider("repeat-penalty", params.repeatPenalty, "repeat-penalty");
 
-    document.getElementById("context-size-slider").value =
-      this.app.state.modelParams.contextSize;
-    document.getElementById("context-size-value").textContent =
-      this.app.state.modelParams.contextSize;
+    // Update seed input
+    const seedInput = document.getElementById("seed-input");
+    if (seedInput) {
+      seedInput.value = params.seed || -1;
+    }
 
-    document.getElementById("repeat-penalty-slider").value =
-      this.app.state.modelParams.repeatPenalty;
-    document.getElementById("repeat-penalty-value").textContent =
-      this.app.state.modelParams.repeatPenalty;
+    // Update status display
+    this.updateStatusDisplay();
+  }
 
-    document.getElementById("seed-input").value =
-      this.app.state.modelParams.seed;
+  // 🔧 NEW: Helper method to safely update sliders
+  updateSlider(paramName, value, sliderId = null) {
+    const sliderElement = document.getElementById(
+      `${sliderId || paramName}-slider`
+    );
+    const valueElement = document.getElementById(
+      `${sliderId || paramName}-value`
+    );
+
+    if (sliderElement && value !== undefined) {
+      sliderElement.value = value;
+    }
+    if (valueElement && value !== undefined) {
+      valueElement.textContent = value;
+    }
   }
 
   async saveParams() {
@@ -114,11 +135,21 @@ export class ModelParamsManager {
         body: JSON.stringify(this.app.state.modelParams),
       });
 
-      const params = await response.json();
-      this.app.state.modelParams = params;
+      const data = await response.json();
+
+      // 🔧 FIX: Handle both success and error responses
+      if (data.error) {
+        console.error("Server error:", data);
+        this.app.ui.showNotification(`Erreur: ${data.error}`, "error");
+        return;
+      }
+
+      // Extract modelParams from successful response
+      this.app.state.modelParams = data.modelParams || data;
+      this.updateUI();
       this.updateStatusDisplay();
       this.app.ui.showNotification("Paramètres sauvegardés !", "success");
-      console.log("✅ Paramètres sauvegardés:", params);
+      console.log("✅ Paramètres sauvegardés:", this.app.state.modelParams);
     } catch (error) {
       console.error("Erreur lors de la sauvegarde:", error);
       this.app.ui.showNotification("Erreur lors de la sauvegarde", "error");
@@ -132,12 +163,21 @@ export class ModelParamsManager {
         credentials: "include",
       });
 
-      const params = await response.json();
-      this.app.state.modelParams = params;
+      const data = await response.json();
+
+      // 🔧 FIX: Handle both success and error responses
+      if (data.error) {
+        console.error("Server error:", data);
+        this.app.ui.showNotification(`Erreur: ${data.error}`, "error");
+        return;
+      }
+
+      // Extract modelParams from successful response
+      this.app.state.modelParams = data.modelParams || data;
       this.updateUI();
       this.updateStatusDisplay();
       this.app.ui.showNotification("Paramètres réinitialisés !", "success");
-      console.log("✅ Paramètres réinitialisés:", params);
+      console.log("✅ Paramètres réinitialisés:", this.app.state.modelParams);
     } catch (error) {
       console.error("Erreur lors de la réinitialisation:", error);
       this.app.ui.showNotification(
