@@ -50,9 +50,9 @@ async function initializeMainApp() {
     await loadModelParams();
     updateStatusIndicator('connected');
     
-    // Initialiser le gestionnaire de modèles
-    if (window.modelsManager) {
-        window.modelsManager.init();
+    // Initialiser le gestionnaire de modèles APRÈS la connexion
+    if (window.initializeModelsManager) {
+        window.initializeModelsManager();
     }
 }
 
@@ -129,7 +129,7 @@ async function handleLogin(e) {
         
         if (data.success) {
             showMainApp();
-            await initializeMainApp();
+            await initializeMainApp(); // Ceci va maintenant initialiser le gestionnaire de modèles
             showNotification('Connexion réussie!', 'success');
         } else {
             errorDiv.textContent = data.error || 'Erreur de connexion';
@@ -153,6 +153,12 @@ async function handleLogout() {
         showLoginPage();
         chatHistory = [];
         clearChatMessages();
+        
+        // Nettoyer le gestionnaire de modèles
+        if (window.modelsManager) {
+            window.modelsManager.destroy();
+        }
+        
         showNotification('Déconnexion réussie', 'info');
     } catch (error) {
         console.error('Erreur de déconnexion:', error);
