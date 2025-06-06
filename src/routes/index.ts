@@ -8,6 +8,7 @@ let authRoutes: Router | null = null;
 let chatRoutes: Router | null = null;
 let modelParamsRoutes: Router | null = null;
 let prepromptsRoutes: Router | null = null;
+let modelsRoutes: Router | null = null;
 
 try {
   authRoutes = require("./authTest").default || require("./authTest"); // Changed to authTest
@@ -40,6 +41,14 @@ try {
 } catch (e) {
   const message = e instanceof Error ? e.message : String(e);
   console.warn("Preprompts routes not found or failed to load:", message);
+}
+
+try {
+  modelsRoutes = require("./models").default || require("./models");
+  console.log("Models routes loaded successfully");
+} catch (e) {
+  const message = e instanceof Error ? e.message : String(e);
+  console.warn("Models routes not found or failed to load:", message);
 }
 
 // Mount auth routes
@@ -103,6 +112,16 @@ if (modelParamsRoutes) {
   }
 }
 
+// Mount models routes
+if (modelsRoutes) {
+  try {
+    router.use("/models", modelsRoutes);
+    console.log("✓ Models routes mounted");
+  } catch (error) {
+    console.error("Failed to mount models routes:", error);
+  }
+}
+
 // Health check endpoint
 router.get("/health", (_req: Request, res: Response): void => {
   const healthResponse: HealthResponse = {
@@ -145,6 +164,16 @@ router.get("/", (_req: Request, res: Response): void => {
         update: "POST /api/model-params",
         reset: "POST /api/model-params/reset",
         validate: "POST /api/model-params/validate",
+      },
+      models: {
+        list: "GET /api/models",
+        download: "POST /api/models/download",
+        activate: "POST /api/models/activate",
+        delete: "DELETE /api/models/:filename",
+        downloads: "GET /api/models/downloads",
+        downloadStatus: "GET /api/models/downloads/:downloadId",
+        cancelDownload: "POST /api/models/downloads/:downloadId/cancel",
+        cleanupDownloads: "POST /api/models/downloads/cleanup",
       },
       health: "GET /api/health",
     },
