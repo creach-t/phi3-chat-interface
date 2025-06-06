@@ -126,6 +126,7 @@ export interface ApiInfoResponse {
     chat: EndpointInfo;
     preprompts: EndpointInfo;
     modelParams: EndpointInfo;
+    models: EndpointInfo; // Ajout des endpoints de modèles
     health: string;
   };
 }
