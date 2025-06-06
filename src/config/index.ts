@@ -23,6 +23,19 @@ interface Config {
   modelPath: string;
   modelsDir: string;
   
+  // Configuration LLaMA (ajouté pour compatibilité)
+  llama: {
+    path: string;
+    model: string;
+  };
+  
+  // Data directories
+  data: {
+    dir: string;
+    prepromptsFile: string;
+    modelParamsFile: string;
+  };
+  
   // CORS
   cors: {
     origin: () => string | string[];
@@ -54,6 +67,19 @@ const config: Config = {
   llamaCppPath: process.env.LLAMA_CPP_PATH || '/usr/local/bin/llama-cli',
   modelPath: process.env.MODEL_PATH || path.join(process.cwd(), 'models', 'default.gguf'),
   modelsDir: path.join(process.cwd(), 'models'),
+  
+  // Configuration LLaMA (pour compatibilité avec llamaService)
+  llama: {
+    path: process.env.LLAMA_CPP_PATH || '/usr/local/bin/llama-cli',
+    model: process.env.MODEL_PATH || path.join(process.cwd(), 'models', 'default.gguf')
+  },
+  
+  // Data directories
+  data: {
+    dir: path.join(process.cwd(), 'data'),
+    prepromptsFile: 'preprompts.json',
+    modelParamsFile: 'modelParams.json'
+  },
   
   // CORS
   cors: {
