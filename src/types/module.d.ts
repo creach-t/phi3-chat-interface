@@ -1,15 +1,8 @@
 import type winston from "winston";
-import type { AppConfig, ExpressApp } from "./interfaces";
 
-declare module "src/app" {
-  const expressApp: ExpressApp;
-  export default app;
-}
+declare module "src/app" {}
 
-declare module "src/config" {
-  const appConfig: AppConfig;
-  export default config;
-}
+declare module "src/config" {}
 
 declare module "src/utils/logger" {
   const logger: winston.Logger;
