@@ -146,4 +146,4 @@ process.on("SIGINT", () => {
 });
 
 // Export via module.d.ts - assigner à l'export par défaut du module
-module.exports = expressApp;
+export default expressApp;
