@@ -23,10 +23,12 @@ interface Config {
   modelPath: string;
   modelsDir: string;
   
-  // Configuration LLaMA (ajouté pour compatibilité)
+  // Configuration LLaMA (pour compatibilité avec llamaService)
   llama: {
     path: string;
     model: string;
+    cppPath: string;     // Ajout pour llamaService
+    modelPath: string;   // Ajout pour llamaService
   };
   
   // Data directories
@@ -71,7 +73,9 @@ const config: Config = {
   // Configuration LLaMA (pour compatibilité avec llamaService)
   llama: {
     path: process.env.LLAMA_CPP_PATH || '/usr/local/bin/llama-cli',
-    model: process.env.MODEL_PATH || path.join(process.cwd(), 'models', 'default.gguf')
+    model: process.env.MODEL_PATH || path.join(process.cwd(), 'models', 'default.gguf'),
+    cppPath: process.env.LLAMA_CPP_PATH || '/usr/local/bin/llama-cli',
+    modelPath: process.env.MODEL_PATH || path.join(process.cwd(), 'models', 'default.gguf')
   },
   
   // Data directories
