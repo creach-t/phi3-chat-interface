@@ -15,7 +15,7 @@ const setActiveSchema = Joi.object({
 /**
  * Liste tous les modèles disponibles
  */
-export const listModels = (req: Request, res: Response): void => {
+export const listModels = (_req: Request, res: Response): void => {
   try {
     const models = modelManager.listModels();
     res.json({
@@ -187,7 +187,7 @@ export const cancelDownload = (req: Request, res: Response): void => {
 /**
  * Nettoie les téléchargements terminés
  */
-export const cleanupDownloads = (req: Request, res: Response): void => {
+export const cleanupDownloads = (_req: Request, res: Response): void => {
   try {
     modelManager.cleanupDownloads();
     res.json({
