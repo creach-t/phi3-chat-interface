@@ -1,5 +1,5 @@
 /**
- * Gestionnaire des modèles
+ * Gestionnaire des modèles adapté pour l'interface existante
  */
 class ModelsManager {
     constructor() {
@@ -12,63 +12,61 @@ class ModelsManager {
     init() {
         if (this.isInitialized) return;
         
-        this.createModelsSection();
+        this.setupEventListeners();
         this.loadModels();
         this.startRefreshInterval();
         this.isInitialized = true;
     }
 
-    createModelsSection() {
-        const existingSection = document.getElementById('models-section');
-        if (existingSection) return;
+    setupEventListeners() {
+        // Bouton pour ouvrir la sidebar
+        const modelsBtn = document.getElementById('models-btn');
+        if (modelsBtn) {
+            modelsBtn.addEventListener('click', () => this.showModelsSidebar());
+        }
 
-        const mainContainer = document.querySelector('.chat-container');
-        if (!mainContainer) return;
+        // Bouton pour fermer la sidebar
+        const closeBtn = document.getElementById('close-models');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.hideModelsSidebar());
+        }
 
-        const modelsSection = document.createElement('div');
-        modelsSection.id = 'models-section';
-        modelsSection.className = 'models-section';
-        modelsSection.innerHTML = `
-            <div class="models-header">
-                <h2>🤖 Gestion des Modèles</h2>
-                <button class="btn-toggle" onclick="modelsManager.toggleSection()">−</button>
-            </div>
-            <div class="models-content">
-                <!-- Formulaire d'ajout -->
-                <div class="add-model-form">
-                    <h3>Ajouter un modèle</h3>
-                    <div class="form-group">
-                        <input type="url" 
-                               id="model-url" 
-                               placeholder="https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/main/Phi-3-mini-4k-instruct-q4.gguf"
-                               class="form-input">
-                        <input type="text" 
-                               id="model-filename" 
-                               placeholder="Nom du fichier (optionnel)"
-                               class="form-input">
-                        <button onclick="modelsManager.downloadModel()" class="btn-primary">Télécharger</button>
-                    </div>
-                </div>
+        // Bouton de téléchargement
+        const downloadBtn = document.getElementById('download-model-btn');
+        if (downloadBtn) {
+            downloadBtn.addEventListener('click', () => this.downloadModel());
+        }
+    }
 
-                <!-- Liste des téléchargements en cours -->
-                <div id="downloads-list" class="downloads-list" style="display: none;">
-                    <h3>Téléchargements en cours</h3>
-                    <div id="downloads-container"></div>
-                </div>
+    showModelsSidebar() {
+        // Fermer les autres sidebars
+        this.hideOtherSidebars();
+        
+        // Ouvrir la sidebar des modèles
+        const sidebar = document.getElementById('models-sidebar');
+        if (sidebar) {
+            sidebar.classList.remove('hidden');
+        }
+        
+        // Charger les modèles si pas encore fait
+        this.loadModels();
+    }
 
-                <!-- Liste des modèles -->
-                <div class="models-list">
-                    <h3>Modèles disponibles</h3>
-                    <div id="models-container">
-                        <p class="loading-models">Chargement des modèles...</p>
-                    </div>
-                </div>
-            </div>
-        `;
+    hideModelsSidebar() {
+        const sidebar = document.getElementById('models-sidebar');
+        if (sidebar) {
+            sidebar.classList.add('hidden');
+        }
+    }
 
-        // Insérer avant le conteneur de chat
-        const chatContainer = document.querySelector('.chat-interface');
-        mainContainer.insertBefore(modelsSection, chatContainer);
+    hideOtherSidebars() {
+        const sidebars = ['settings-sidebar', 'preprompts-sidebar'];
+        sidebars.forEach(sidebarId => {
+            const sidebar = document.getElementById(sidebarId);
+            if (sidebar) {
+                sidebar.classList.add('hidden');
+            }
+        });
     }
 
     async loadModels() {
@@ -88,11 +86,11 @@ class ModelsManager {
     }
 
     renderModels() {
-        const container = document.getElementById('models-container');
+        const container = document.getElementById('models-list');
         if (!container) return;
 
         if (this.models.length === 0) {
-            container.innerHTML = '<p class="no-models">Aucun modèle disponible</p>';
+            container.innerHTML = '<div class="no-models">Aucun modèle disponible</div>';
             return;
         }
 
@@ -100,16 +98,33 @@ class ModelsManager {
             <div class="model-item ${model.isActive ? 'active' : ''}">
                 <div class="model-info">
                     <div class="model-name">
-                        ${model.isActive ? '🟢' : '⚪'} ${model.name}
+                        <i class="fas fa-${model.isActive ? 'check-circle' : 'circle'}" style="color: ${model.isActive ? '#4caf50' : '#ccc'}"></i>
+                        ${model.name}
                     </div>
                     <div class="model-details">
-                        <span class="model-size">${this.formatSize(model.size)}</span>
-                        <span class="model-date">${new Date(model.downloadDate).toLocaleDateString()}</span>
+                        <span class="model-size">
+                            <i class="fas fa-hdd"></i> ${this.formatSize(model.size)}
+                        </span>
+                        <span class="model-date">
+                            <i class="fas fa-calendar"></i> ${new Date(model.downloadDate).toLocaleDateString()}
+                        </span>
                     </div>
                 </div>
                 <div class="model-actions">
-                    ${!model.isActive ? `<button onclick="modelsManager.activateModel('${model.filename}')" class="btn-activate">Activer</button>` : ''}
-                    ${!model.isActive ? `<button onclick="modelsManager.deleteModel('${model.filename}')" class="btn-delete">Supprimer</button>` : ''}
+                    ${!model.isActive ? `
+                        <button onclick="modelsManager.activateModel('${model.filename}')" class="btn-primary btn-sm">
+                            <i class="fas fa-play"></i> Activer
+                        </button>
+                    ` : ''}
+                    ${!model.isActive ? `
+                        <button onclick="modelsManager.deleteModel('${model.filename}')" class="btn-secondary btn-sm">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    ` : `
+                        <span class="active-badge">
+                            <i class="fas fa-star"></i> Actuel
+                        </span>
+                    `}
                 </div>
             </div>
         `).join('');
@@ -124,6 +139,12 @@ class ModelsManager {
 
         if (!url) {
             this.showError('Veuillez entrer une URL');
+            return;
+        }
+
+        // Validation basique de l'URL
+        if (!url.includes('huggingface.co') || !url.includes('.gguf')) {
+            this.showError('Veuillez entrer une URL Hugging Face valide vers un fichier .gguf');
             return;
         }
 
@@ -164,7 +185,7 @@ class ModelsManager {
             const data = await response.json();
             
             if (data.success) {
-                this.showSuccess('Modèle activé');
+                this.showSuccess('Modèle activé avec succès');
                 this.loadModels();
             } else {
                 this.showError('Erreur: ' + data.error);
@@ -212,8 +233,8 @@ class ModelsManager {
     }
 
     renderDownloads() {
-        const container = document.getElementById('downloads-container');
-        const section = document.getElementById('downloads-list');
+        const container = document.getElementById('downloads-list');
+        const section = document.getElementById('downloads-section');
         
         if (!container || !section) return;
 
@@ -225,19 +246,26 @@ class ModelsManager {
         section.style.display = 'block';
         container.innerHTML = this.downloads.map(download => `
             <div class="download-item ${download.status}">
-                <div class="download-info">
-                    <div class="download-filename">${download.filename}</div>
-                    <div class="download-progress">
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: ${download.progress}%"></div>
-                        </div>
-                        <span class="progress-text">${Math.round(download.progress)}%</span>
+                <div class="download-header">
+                    <span class="download-filename">
+                        <i class="fas fa-download"></i>
+                        ${download.filename}
+                    </span>
+                    <span class="download-status">
+                        ${this.getStatusIcon(download.status)} ${this.getStatusText(download.status)}
+                    </span>
+                </div>
+                <div class="download-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${download.progress}%"></div>
                     </div>
-                    <div class="download-status">${this.getStatusText(download.status)}</div>
+                    <span class="progress-text">${Math.round(download.progress)}%</span>
                 </div>
-                <div class="download-actions">
-                    ${download.status === 'downloading' ? `<button onclick="modelsManager.cancelDownload('${download.id}')" class="btn-cancel">Annuler</button>` : ''}
-                </div>
+                ${download.status === 'downloading' ? `
+                    <button onclick="modelsManager.cancelDownload('${download.id}')" class="btn-secondary btn-sm">
+                        <i class="fas fa-times"></i> Annuler
+                    </button>
+                ` : ''}
             </div>
         `).join('');
     }
@@ -269,19 +297,6 @@ class ModelsManager {
         }, 2000);
     }
 
-    toggleSection() {
-        const content = document.querySelector('.models-content');
-        const button = document.querySelector('.btn-toggle');
-        
-        if (content.style.display === 'none') {
-            content.style.display = 'block';
-            button.textContent = '−';
-        } else {
-            content.style.display = 'none';
-            button.textContent = '+';
-        }
-    }
-
     formatSize(bytes) {
         const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
         if (bytes === 0) return '0 B';
@@ -291,7 +306,7 @@ class ModelsManager {
 
     getStatusText(status) {
         const statusMap = {
-            'downloading': 'Téléchargement...',
+            'downloading': 'En cours...',
             'completed': 'Terminé',
             'error': 'Erreur',
             'cancelled': 'Annulé'
@@ -299,8 +314,18 @@ class ModelsManager {
         return statusMap[status] || status;
     }
 
+    getStatusIcon(status) {
+        const iconMap = {
+            'downloading': '<i class="fas fa-spinner fa-spin"></i>',
+            'completed': '<i class="fas fa-check" style="color: #4caf50"></i>',
+            'error': '<i class="fas fa-exclamation-triangle" style="color: #f44336"></i>',
+            'cancelled': '<i class="fas fa-times" style="color: #ff9800"></i>'
+        };
+        return iconMap[status] || '';
+    }
+
     showError(message) {
-        // Utiliser le système de notification existant ou créer une simple alerte
+        // Utilise le système de notification existant ou crée une alerte
         if (window.showNotification) {
             window.showNotification(message, 'error');
         } else {
@@ -309,7 +334,7 @@ class ModelsManager {
     }
 
     showSuccess(message) {
-        // Utiliser le système de notification existant ou créer une simple alerte
+        // Utilise le système de notification existant
         if (window.showNotification) {
             window.showNotification(message, 'success');
         } else {
@@ -317,7 +342,6 @@ class ModelsManager {
         }
     }
 
-    // Nettoyer les intervalles au besoin
     destroy() {
         if (this.refreshInterval) {
             clearInterval(this.refreshInterval);
@@ -326,10 +350,17 @@ class ModelsManager {
     }
 }
 
-// Instance globale mais n'initialise PAS automatiquement
+// Instance globale - ne s'initialise pas automatiquement
 let modelsManager = new ModelsManager();
 
-// Fonction globale pour initialiser le gestionnaire (appelée depuis main.js)
+// Fonction globale pour afficher les modèles (appelée depuis les quick-actions)
+window.showModels = function() {
+    if (modelsManager) {
+        modelsManager.showModelsSidebar();
+    }
+};
+
+// Fonction d'initialisation (appelée depuis main.js après connexion)
 window.initializeModelsManager = function() {
     if (modelsManager) {
         modelsManager.init();
