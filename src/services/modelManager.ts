@@ -227,7 +227,6 @@ class ModelManager {
    * Obtient des informations sur l'espace disque
    */
   public getDiskSpace(): { total: number; free: number; used: number } {
-    const stats = fs.statSync(this.modelsDir);
     // Note: cette méthode est basique, pour un vrai calcul d'espace disque,
     // il faudrait utiliser une lib comme 'statvfs' ou une commande système
     return {
