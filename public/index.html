@@ -3,221 +3,146 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phi-3 Chat Interface</title>
+    <title>🤖 Phi-3 Chat Interface</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="css/models.css">
 </head>
 <body>
-    <!-- Page de connexion -->
-    <div id="login-page" class="page">
-        <div class="login-container">
-            <div class="login-header">
-                <div class="logo">
-                    <i class="fas fa-robot"></i>
-                    <h1>Phi-3 Chat</h1>
-                </div>
-                <p class="subtitle">Interface locale pour votre modèle IA</p>
-            </div>
-            <form id="login-form" class="login-form">
-                <div class="input-group">
-                    <i class="fas fa-user"></i>
-                    <input type="text" id="username" placeholder="Nom d'utilisateur" required>
-                </div>
-                <div class="input-group">
-                    <i class="fas fa-lock"></i>
-                    <input type="password" id="password" placeholder="Mot de passe" required>
-                </div>
-                <button type="submit" class="login-btn">
-                    <span>Se connecter</span>
-                    <i class="fas fa-arrow-right"></i>
-                </button>
-            </form>
-            <div id="login-error" class="error"></div>
-        </div>
-    </div>
-
-    <!-- Interface principale -->
-    <div id="chat-page" class="page hidden">
-        <!-- Header -->
-        <header class="main-header">
-            <div class="header-left">
-                <div class="logo">
-                    <i class="fas fa-robot"></i>
-                    <span>Phi-3 Chat</span>
-                </div>
-                <div class="status-indicator">
-                    <div class="status-dot"></div>
-                    <span>Connecté</span>
-                </div>
-            </div>
-            
-            <div class="header-controls">
-                <button id="theme-toggle" class="control-btn" title="Basculer le thème">
-                    <i class="fas fa-moon"></i>
-                </button>
-                <button id="settings-btn" class="control-btn" title="Paramètres du modèle">
-                    <i class="fas fa-cog"></i>
-                </button>
-                <button id="preprompts-btn" class="control-btn" title="Preprompts">
-                    <i class="fas fa-bookmark"></i>
-                </button>
-                <button id="logout-btn" class="control-btn logout" title="Déconnexion">
-                    <i class="fas fa-sign-out-alt"></i>
-                </button>
-            </div>
-        </header>
-
-        <div class="main-container">
-            <!-- Sidebar des paramètres -->
-            <div id="settings-sidebar" class="sidebar hidden">
-                <div class="sidebar-header">
-                    <h3><i class="fas fa-cog"></i> Paramètres du modèle</h3>
-                    <button id="close-settings" class="close-btn">
-                        <i class="fas fa-times"></i>
-                    </button>
+    <div class="container">
+        <!-- Page de connexion -->
+        <div id="login-page" class="login-page">
+            <div class="login-container">
+                <div class="login-header">
+                    <h1>🤖 Phi-3 Chat</h1>
+                    <p>Interface sécurisée pour votre modèle local</p>
                 </div>
                 
-                <div class="settings-content">
-                    <div class="settings-group">
-                        <label for="temperature-slider">
-                            <i class="fas fa-thermometer-half"></i>
-                            Température
-                            <span class="value-display" id="temperature-value">0.7</span>
-                        </label>
-                        <input type="range" id="temperature-slider" min="0.1" max="2.0" step="0.1" value="0.7">
-                        <small>Contrôle la créativité (0.1 = conservateur, 2.0 = créatif)</small>
+                <form id="login-form" class="login-form">
+                    <div class="form-group">
+                        <label for="username">Nom d'utilisateur</label>
+                        <input type="text" id="username" name="username" required autocomplete="username">
                     </div>
+                    
+                    <div class="form-group">
+                        <label for="password">Mot de passe</label>
+                        <input type="password" id="password" name="password" required autocomplete="current-password">
+                    </div>
+                    
+                    <button type="submit" id="login-btn" class="login-btn">
+                        <span class="btn-text">Se connecter</span>
+                        <div class="btn-spinner" style="display: none;"></div>
+                    </button>
+                    
+                    <div id="login-error" class="error-message" style="display: none;"></div>
+                </form>
+                
+                <div class="login-footer">
+                    <p>Identifiants par défaut: admin / password123</p>
+                </div>
+            </div>
+        </div>
 
-                    <div class="settings-group">
-                        <label for="max-tokens-slider">
-                            <i class="fas fa-text-width"></i>
-                            Tokens max
-                            <span class="value-display" id="max-tokens-value">512</span>
-                        </label>
-                        <input type="range" id="max-tokens-slider" min="50" max="2048" step="50" value="512">
-                        <small>Longueur maximale de la réponse</small>
-                    </div>
-
-                    <div class="settings-group">
-                        <label for="top-p-slider">
-                            <i class="fas fa-layer-group"></i>
-                            Top-P
-                            <span class="value-display" id="top-p-value">0.95</span>
-                        </label>
-                        <input type="range" id="top-p-slider" min="0.1" max="1.0" step="0.05" value="0.95">
-                        <small>Diversité du vocabulaire (nucleus sampling)</small>
-                    </div>
-
-                    <div class="settings-group">
-                        <label for="context-size-slider">
-                            <i class="fas fa-memory"></i>
-                            Taille contexte
-                            <span class="value-display" id="context-size-value">2048</span>
-                        </label>
-                        <input type="range" id="context-size-slider" min="512" max="8192" step="256" value="2048">
-                        <small>Mémoire de la conversation</small>
-                    </div>
-
-                    <div class="settings-group">
-                        <label for="repeat-penalty-slider">
-                            <i class="fas fa-redo"></i>
-                            Pénalité répétition
-                            <span class="value-display" id="repeat-penalty-value">1.1</span>
-                        </label>
-                        <input type="range" id="repeat-penalty-slider" min="0.8" max="1.5" step="0.1" value="1.1">
-                        <small>Évite les répétitions (1.0 = aucune pénalité)</small>
-                    </div>
-
-                    <div class="settings-group">
-                        <label for="seed-input">
-                            <i class="fas fa-random"></i>
-                            Seed (aléatoire si -1)
-                        </label>
-                        <input type="number" id="seed-input" value="-1" min="-1" max="999999">
-                        <small>Pour reproduire des résultats identiques</small>
-                    </div>
-
-                    <div class="settings-actions">
-                        <button id="reset-params" class="btn-secondary">
-                            <i class="fas fa-undo"></i>
-                            Réinitialiser
-                        </button>
-                        <button id="save-params" class="btn-primary">
-                            <i class="fas fa-save"></i>
-                            Sauvegarder
-                        </button>
-                    </div>
+        <!-- Interface principale -->
+        <div id="main-app" class="main-app" style="display: none;">
+            <div class="app-header">
+                <div class="header-left">
+                    <h1>🤖 Phi-3 Chat Interface</h1>
+                    <span class="status-indicator" id="status-indicator">●</span>
+                </div>
+                <div class="header-right">
+                    <button id="logout-btn" class="logout-btn">Déconnexion</button>
                 </div>
             </div>
 
-            <!-- Sidebar des preprompts -->
-            <div id="preprompts-sidebar" class="sidebar hidden">
-                <div class="sidebar-header">
-                    <h3><i class="fas fa-bookmark"></i> Preprompts</h3>
-                    <div class="header-actions">
-                        <button id="add-preprompt-btn" class="btn-primary btn-sm">
-                            <i class="fas fa-plus"></i>
-                            Ajouter
-                        </button>
-                        <button id="close-preprompts" class="close-btn">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                </div>
-                <div id="preprompts-list" class="preprompts-list"></div>
-            </div>
-
-            <!-- Zone de chat -->
             <div class="chat-container">
-                <!-- Barre de preprompt actuel -->
-                <div class="preprompt-bar">
-                    <div class="preprompt-selector">
-                        <i class="fas fa-bookmark"></i>
-                        <select id="preprompt-select">
-                            <option value="">Aucun preprompt</option>
-                        </select>
+                <!-- Section gestion des modèles (sera injectée par models.js) -->
+                
+                <!-- Interface de chat -->
+                <div class="chat-interface">
+                    <!-- Sélection des preprompts -->
+                    <div class="preprompts-section">
+                        <div class="preprompts-header">
+                            <h3>📝 Preprompts</h3>
+                            <button id="add-preprompt-btn" class="add-btn">+ Ajouter</button>
+                        </div>
+                        <div class="preprompts-container">
+                            <select id="preprompt-select">
+                                <option value="">Aucun preprompt</option>
+                            </select>
+                            <div class="preprompts-actions">
+                                <button id="edit-preprompt-btn" class="edit-btn" disabled>✏️</button>
+                                <button id="delete-preprompt-btn" class="delete-btn" disabled>🗑️</button>
+                            </div>
+                        </div>
                     </div>
-                    <div id="current-preprompt" class="current-preprompt"></div>
-                </div>
 
-                <!-- Messages de chat -->
-                <div id="chat-messages" class="chat-messages">
-                    <div class="welcome-message">
-                        <div class="welcome-content">
-                            <i class="fas fa-robot"></i>
-                            <h3>Bienvenue dans Phi-3 Chat !</h3>
-                            <p>Votre assistant IA local est prêt. Posez-moi vos questions ou configurez un preprompt pour commencer.</p>
-                            <div class="quick-actions">
-                                <button class="quick-action" onclick="showSettings()">
-                                    <i class="fas fa-cog"></i>
-                                    Configurer le modèle
+                    <!-- Zone de chat -->
+                    <div class="chat-area">
+                        <div id="chat-messages" class="chat-messages">
+                            <div class="welcome-message">
+                                <h3>👋 Bienvenue dans Phi-3 Chat!</h3>
+                                <p>Commencez une conversation avec votre modèle local.</p>
+                                <p>Vous pouvez sélectionner un preprompt ci-dessus pour définir le contexte de la conversation.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="chat-input-container">
+                            <div class="input-wrapper">
+                                <textarea 
+                                    id="message-input" 
+                                    placeholder="Tapez votre message..."
+                                    rows="1"
+                                ></textarea>
+                                <button id="send-btn" class="send-btn" disabled>
+                                    <span class="send-icon">📤</span>
                                 </button>
-                                <button class="quick-action" onclick="showPreprompts()">
-                                    <i class="fas fa-bookmark"></i>
-                                    Ajouter un preprompt
-                                </button>
+                            </div>
+                            <div class="input-actions">
+                                <button id="clear-chat-btn" class="clear-btn">🗑️ Effacer</button>
+                                <div class="model-info">
+                                    <span id="current-model">Modèle: En attente...</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Zone de saisie -->
-                <div class="input-container">
-                    <div class="input-wrapper">
-                        <textarea id="message-input" placeholder="Tapez votre message..." rows="1"></textarea>
-                        <button id="send-btn" class="send-btn" disabled>
-                            <i class="fas fa-paper-plane"></i>
-                        </button>
+                <!-- Paramètres du modèle -->
+                <div class="model-params-section">
+                    <div class="params-header">
+                        <h3>⚙️ Paramètres du modèle</h3>
+                        <button id="toggle-params-btn" class="toggle-btn">−</button>
                     </div>
-                    <div class="input-footer">
-                        <div class="model-status">
-                            <i class="fas fa-microchip"></i>
-                            <span id="current-params">T: 0.7 | Tokens: 512</span>
+                    <div id="params-content" class="params-content">
+                        <div class="params-grid">
+                            <div class="param-group">
+                                <label for="temperature">Température</label>
+                                <input type="range" id="temperature" min="0.1" max="2.0" step="0.1" value="0.7">
+                                <span id="temperature-value">0.7</span>
+                            </div>
+                            
+                            <div class="param-group">
+                                <label for="max-tokens">Tokens max</label>
+                                <input type="range" id="max-tokens" min="50" max="2048" step="50" value="512">
+                                <span id="max-tokens-value">512</span>
+                            </div>
+                            
+                            <div class="param-group">
+                                <label for="context-size">Taille contexte</label>
+                                <input type="range" id="context-size" min="512" max="4096" step="256" value="2048">
+                                <span id="context-size-value">2048</span>
+                            </div>
+                            
+                            <div class="param-group">
+                                <label for="top-p">Top-p</label>
+                                <input type="range" id="top-p" min="0.1" max="1.0" step="0.1" value="0.9">
+                                <span id="top-p-value">0.9</span>
+                            </div>
                         </div>
-                        <div id="typing-indicator" class="typing-indicator hidden">
-                            <i class="fas fa-robot"></i>
-                            <span>L'IA réfléchit...</span>
+                        
+                        <div class="params-actions">
+                            <button id="reset-params-btn" class="reset-btn">🔄 Réinitialiser</button>
+                            <button id="save-params-btn" class="save-btn">💾 Sauvegarder</button>
                         </div>
                     </div>
                 </div>
@@ -225,65 +150,37 @@
         </div>
     </div>
 
-    <!-- Modal preprompt -->
-    <div id="preprompt-modal" class="modal hidden">
+    <!-- Modal pour les preprompts -->
+    <div id="preprompt-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2><i class="fas fa-bookmark"></i> Nouveau Preprompt</h2>
-                <button id="close-modal" class="close-btn">
-                    <i class="fas fa-times"></i>
-                </button>
+                <h3 id="modal-title">Ajouter un preprompt</h3>
+                <button class="modal-close">&times;</button>
             </div>
-            
-            <!-- Suggestions rapides -->
-            <div class="suggestions-section">
-                <h3>Suggestions rapides :</h3>
-                <div id="preprompt-suggestions" class="suggestions-grid">
-                    <!-- Remplies par JavaScript -->
-                </div>
-            </div>
-            
-            <form id="preprompt-form" class="preprompt-form">
-                <div class="form-group">
-                    <label for="preprompt-name">
-                        <i class="fas fa-tag"></i>
-                        Nom du preprompt
-                    </label>
-                    <input type="text" id="preprompt-name" required maxlength="50" placeholder="Ex: Assistant français">
-                </div>
-                
-                <div class="form-group">
-                    <label for="preprompt-content">
-                        <i class="fas fa-edit"></i>
-                        Contenu 
-                        <span class="char-counter">
-                            <span id="char-count">0</span>/500 caractères
-                        </span>
-                    </label>
-                    <textarea id="preprompt-content" required maxlength="500" 
-                             placeholder="Tu es un assistant IA qui répond toujours en français de manière polie et professionnelle..."
-                             oninput="updateCharCount(this)"></textarea>
-                    <div class="length-indicator">
-                        <span id="length-indicator" class="length-good">✓ Optimal</span>
+            <div class="modal-body">
+                <form id="preprompt-form">
+                    <div class="form-group">
+                        <label for="preprompt-name">Nom</label>
+                        <input type="text" id="preprompt-name" required>
                     </div>
-                </div>
-                
-                <div class="form-actions">
-                    <button type="button" id="cancel-preprompt" class="btn-secondary">
-                        <i class="fas fa-times"></i>
-                        Annuler
-                    </button>
-                    <button type="submit" class="btn-primary">
-                        <i class="fas fa-save"></i>
-                        Enregistrer
-                    </button>
-                </div>
-            </form>
+                    <div class="form-group">
+                        <label for="preprompt-content">Contenu</label>
+                        <textarea id="preprompt-content" rows="5" required></textarea>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="cancel-btn">Annuler</button>
+                        <button type="submit" class="save-btn">Sauvegarder</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
-    <!-- Scripts modulaires -->
-    <script type="module" src="js/app.js"></script>
-    <script type="module" src="js/global-functions.js"></script>
+    <!-- Notifications -->
+    <div id="notification-container" class="notification-container"></div>
+
+    <!-- Scripts -->
+    <script src="js/models.js"></script>
+    <script src="js/main.js"></script>
 </body>
 </html>
