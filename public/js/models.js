@@ -6,13 +6,16 @@ class ModelsManager {
         this.models = [];
         this.downloads = [];
         this.refreshInterval = null;
-        this.init();
+        this.isInitialized = false;
     }
 
     init() {
+        if (this.isInitialized) return;
+        
         this.createModelsSection();
         this.loadModels();
         this.startRefreshInterval();
+        this.isInitialized = true;
     }
 
     createModelsSection() {
@@ -56,7 +59,9 @@ class ModelsManager {
                 <!-- Liste des modèles -->
                 <div class="models-list">
                     <h3>Modèles disponibles</h3>
-                    <div id="models-container"></div>
+                    <div id="models-container">
+                        <p class="loading-models">Chargement des modèles...</p>
+                    </div>
                 </div>
             </div>
         `;
@@ -317,17 +322,16 @@ class ModelsManager {
         if (this.refreshInterval) {
             clearInterval(this.refreshInterval);
         }
+        this.isInitialized = false;
     }
 }
 
-// Instance globale
-let modelsManager;
+// Instance globale mais n'initialise PAS automatiquement
+let modelsManager = new ModelsManager();
 
-// Initialiser quand le DOM est prêt
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        modelsManager = new ModelsManager();
-    });
-} else {
-    modelsManager = new ModelsManager();
-}
+// Fonction globale pour initialiser le gestionnaire (appelée depuis main.js)
+window.initializeModelsManager = function() {
+    if (modelsManager) {
+        modelsManager.init();
+    }
+};
