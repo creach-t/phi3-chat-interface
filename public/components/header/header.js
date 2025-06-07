@@ -256,22 +256,17 @@
             // Animation de déconnexion
             this.setButtonLoading('logout-btn', true);
             
+            // Utiliser la logique de déconnexion du composant login
+            if (window.loginComponent && window.loginComponent.logout) {
+                window.loginComponent.logout();
+            } else {
+                // Fallback si le composant login n'est pas disponible
+                window.dispatchEvent(new CustomEvent('requestLogout'));
+            }
+            
+            // Nettoyer l'état du header
             setTimeout(() => {
-                const loginPage = document.getElementById('login-page');
-                const chatPage = document.getElementById('chat-page');
-
-                if (loginPage && chatPage) {
-                    chatPage.classList.add('hidden');
-                    loginPage.classList.remove('hidden');
-                    
-                    // Nettoyer l'état
-                    this.closeAllSidebars();
-                    
-                    // Émettre un événement
-                    document.dispatchEvent(new CustomEvent('userLoggedOut'));
-                    console.log('👋 User logged out');
-                }
-                
+                this.closeAllSidebars();
                 this.setButtonLoading('logout-btn', false);
             }, 1000);
         }
