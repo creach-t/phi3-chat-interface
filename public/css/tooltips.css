@@ -1,0 +1,351 @@
+/* Système de tooltips centralisé et réutilisable */
+
+/* Container de base pour tooltip */
+.tooltip {
+  position: relative;
+  display: inline-block;
+}
+
+/* Texte du tooltip */
+.tooltip-text {
+  /* Masqué par défaut */
+  visibility: hidden;
+  opacity: 0;
+  
+  /* Styles de base */
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  text-align: center;
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.75rem;
+  
+  /* Positionnement */
+  position: absolute;
+  z-index: 1000;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  
+  /* Taille */
+  width: max-content;
+  max-width: 200px;
+  min-width: 80px;
+  
+  /* Typography */
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.4;
+  
+  /* Ombre */
+  box-shadow: var(--shadow-md);
+  
+  /* Animation */
+  transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out, transform 0.2s ease-in-out;
+  transform: translateX(-50%) translateY(5px);
+}
+
+/* Flèche du tooltip */
+.tooltip-text::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: var(--bg-tertiary) transparent transparent transparent;
+}
+
+/* Affichage au hover */
+.tooltip:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Variantes de position */
+
+/* Tooltip en haut (par défaut) */
+.tooltip-top .tooltip-text {
+  bottom: 125%;
+  top: auto;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%) translateY(5px);
+}
+
+.tooltip-top .tooltip-text::after {
+  top: 100%;
+  bottom: auto;
+  left: 50%;
+  right: auto;
+  margin-left: -5px;
+  margin-top: 0;
+  border-color: var(--bg-tertiary) transparent transparent transparent;
+}
+
+.tooltip-top:hover .tooltip-text {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Tooltip en bas */
+.tooltip-bottom .tooltip-text {
+  top: 125%;
+  bottom: auto;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%) translateY(-5px);
+}
+
+.tooltip-bottom .tooltip-text::after {
+  bottom: 100%;
+  top: auto;
+  left: 50%;
+  right: auto;
+  margin-left: -5px;
+  margin-bottom: 0;
+  border-color: transparent transparent var(--bg-tertiary) transparent;
+}
+
+.tooltip-bottom:hover .tooltip-text {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Tooltip à gauche */
+.tooltip-left .tooltip-text {
+  top: 50%;
+  right: 125%;
+  left: auto;
+  bottom: auto;
+  transform: translateY(-50%) translateX(5px);
+}
+
+.tooltip-left .tooltip-text::after {
+  top: 50%;
+  left: 100%;
+  right: auto;
+  bottom: auto;
+  margin-top: -5px;
+  margin-left: 0;
+  border-color: transparent transparent transparent var(--bg-tertiary);
+}
+
+.tooltip-left:hover .tooltip-text {
+  transform: translateY(-50%) translateX(0);
+}
+
+/* Tooltip à droite */
+.tooltip-right .tooltip-text {
+  top: 50%;
+  left: 125%;
+  right: auto;
+  bottom: auto;
+  transform: translateY(-50%) translateX(-5px);
+}
+
+.tooltip-right .tooltip-text::after {
+  top: 50%;
+  right: 100%;
+  left: auto;
+  bottom: auto;
+  margin-top: -5px;
+  margin-right: 0;
+  border-color: transparent var(--bg-tertiary) transparent transparent;
+}
+
+.tooltip-right:hover .tooltip-text {
+  transform: translateY(-50%) translateX(0);
+}
+
+/* Variantes de couleur */
+
+/* Tooltip primaire */
+.tooltip-primary .tooltip-text {
+  background-color: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+}
+
+.tooltip-primary .tooltip-text::after {
+  border-color: var(--accent-primary) transparent transparent transparent;
+}
+
+.tooltip-primary.tooltip-bottom .tooltip-text::after {
+  border-color: transparent transparent var(--accent-primary) transparent;
+}
+
+.tooltip-primary.tooltip-left .tooltip-text::after {
+  border-color: transparent transparent transparent var(--accent-primary);
+}
+
+.tooltip-primary.tooltip-right .tooltip-text::after {
+  border-color: transparent var(--accent-primary) transparent transparent;
+}
+
+/* Tooltip success */
+.tooltip-success .tooltip-text {
+  background-color: var(--accent-success);
+  color: white;
+  border-color: var(--accent-success);
+}
+
+.tooltip-success .tooltip-text::after {
+  border-color: var(--accent-success) transparent transparent transparent;
+}
+
+.tooltip-success.tooltip-bottom .tooltip-text::after {
+  border-color: transparent transparent var(--accent-success) transparent;
+}
+
+.tooltip-success.tooltip-left .tooltip-text::after {
+  border-color: transparent transparent transparent var(--accent-success);
+}
+
+.tooltip-success.tooltip-right .tooltip-text::after {
+  border-color: transparent var(--accent-success) transparent transparent;
+}
+
+/* Tooltip warning */
+.tooltip-warning .tooltip-text {
+  background-color: var(--accent-warning);
+  color: white;
+  border-color: var(--accent-warning);
+}
+
+.tooltip-warning .tooltip-text::after {
+  border-color: var(--accent-warning) transparent transparent transparent;
+}
+
+.tooltip-warning.tooltip-bottom .tooltip-text::after {
+  border-color: transparent transparent var(--accent-warning) transparent;
+}
+
+.tooltip-warning.tooltip-left .tooltip-text::after {
+  border-color: transparent transparent transparent var(--accent-warning);
+}
+
+.tooltip-warning.tooltip-right .tooltip-text::after {
+  border-color: transparent var(--accent-warning) transparent transparent;
+}
+
+/* Tooltip danger */
+.tooltip-danger .tooltip-text {
+  background-color: var(--accent-danger);
+  color: white;
+  border-color: var(--accent-danger);
+}
+
+.tooltip-danger .tooltip-text::after {
+  border-color: var(--accent-danger) transparent transparent transparent;
+}
+
+.tooltip-danger.tooltip-bottom .tooltip-text::after {
+  border-color: transparent transparent var(--accent-danger) transparent;
+}
+
+.tooltip-danger.tooltip-left .tooltip-text::after {
+  border-color: transparent transparent transparent var(--accent-danger);
+}
+
+.tooltip-danger.tooltip-right .tooltip-text::after {
+  border-color: transparent var(--accent-danger) transparent transparent;
+}
+
+/* Taille personnalisées */
+.tooltip-sm .tooltip-text {
+  font-size: 0.7rem;
+  padding: 0.25rem 0.5rem;
+  max-width: 150px;
+}
+
+.tooltip-lg .tooltip-text {
+  font-size: 0.85rem;
+  padding: 0.75rem 1rem;
+  max-width: 250px;
+}
+
+/* Tooltip sans flèche */
+.tooltip-no-arrow .tooltip-text::after {
+  display: none;
+}
+
+/* Animation retardée */
+.tooltip-delayed .tooltip-text {
+  transition-delay: 0.5s;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .tooltip-text {
+    font-size: 0.7rem;
+    max-width: 150px;
+    padding: 0.4rem 0.6rem;
+  }
+  
+  /* Sur mobile, forcer les tooltips en haut */
+  .tooltip-left .tooltip-text,
+  .tooltip-right .tooltip-text {
+    top: auto;
+    bottom: 125%;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%) translateY(5px);
+  }
+  
+  .tooltip-left .tooltip-text::after,
+  .tooltip-right .tooltip-text::after {
+    top: 100%;
+    bottom: auto;
+    left: 50%;
+    right: auto;
+    margin-left: -5px;
+    margin-top: 0;
+    margin-right: 0;
+    border-color: var(--bg-tertiary) transparent transparent transparent;
+  }
+  
+  .tooltip-left:hover .tooltip-text,
+  .tooltip-right:hover .tooltip-text {
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Support pour le focus (accessibilité) */
+.tooltip:focus .tooltip-text,
+.tooltip:focus-within .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.tooltip-left:focus .tooltip-text,
+.tooltip-left:focus-within .tooltip-text {
+  transform: translateY(-50%) translateX(0);
+}
+
+.tooltip-right:focus .tooltip-text,
+.tooltip-right:focus-within .tooltip-text {
+  transform: translateY(-50%) translateX(0);
+}
+
+.tooltip-bottom:focus .tooltip-text,
+.tooltip-bottom:focus-within .tooltip-text {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Pour les éléments de formulaire avec tooltip */
+input.tooltip:focus .tooltip-text,
+button.tooltip:focus .tooltip-text,
+select.tooltip:focus .tooltip-text,
+textarea.tooltip:focus .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Animation plus fluide pour les interactions tactiles */
+@media (hover: none) {
+  .tooltip-text {
+    transition-duration: 0.1s;
+  }
+}
