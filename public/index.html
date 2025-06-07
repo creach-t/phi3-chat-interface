@@ -14,32 +14,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <!-- Page de connexion -->
+    <!-- Page de connexion - maintenant chargée dynamiquement -->
     <div id="login-page" class="page">
-        <div class="login-container">
-            <div class="login-header">
-                <div class="logo">
-                    <i class="fas fa-robot"></i>
-                    <h1>Phi-3 Chat</h1>
-                </div>
-                <p class="subtitle">Interface locale pour votre modèle IA</p>
-            </div>
-            <form id="login-form" class="login-form">
-                <div class="input-group">
-                    <i class="fas fa-user"></i>
-                    <input type="text" id="username" placeholder="Nom d'utilisateur" required>
-                </div>
-                <div class="input-group">
-                    <i class="fas fa-lock"></i>
-                    <input type="password" id="password" placeholder="Mot de passe" required>
-                </div>
-                <button type="submit" class="login-btn">
-                    <span>Se connecter</span>
-                    <i class="fas fa-arrow-right"></i>
-                </button>
-            </form>
-            <div id="login-error" class="error"></div>
-        </div>
+        <!-- Le contenu sera chargé par le component loader -->
     </div>
 
     <!-- Interface principale -->
@@ -342,8 +319,25 @@
         </div>
     </div>
 
-    <!-- Component Loader (NOUVEAU) -->
+    <!-- Component Loader -->
     <script src="js/component-loader.js"></script>
+    
+    <!-- Initialisation des composants -->
+    <script>
+        // Charger le composant login au démarrage
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Loading login component...');
+            
+            window.componentLoader.loadComponent('components/login/login', '#login-page')
+                .then(() => {
+                    console.log('✅ Login component loaded and initialized');
+                })
+                .catch(error => {
+                    console.error('❌ Failed to load login component:', error);
+                });
+        });
+    </script>
+    
     <!-- Scripts modulaires existants -->
     <script src="js/models.js"></script>
     <script src="js/main.js"></script>
