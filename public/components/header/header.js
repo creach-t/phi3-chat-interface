@@ -13,13 +13,16 @@
         init() {
             if (this.initialized) return;
 
-            this.setupButtons();
-            this.setupTooltips();
-            this.setupEventListeners();
-            this.updateThemeToggle();
-            
-            this.initialized = true;
-            console.log('✅ Header component initialized');
+            // Attendre un peu pour s'assurer que le DOM est prêt
+            setTimeout(() => {
+                this.setupButtons();
+                this.setupTooltips();
+                this.setupEventListeners();
+                this.updateThemeToggle();
+                
+                this.initialized = true;
+                console.log('✅ Header component initialized');
+            }, 100);
         }
 
         setupButtons() {
@@ -61,42 +64,47 @@
             buttonConfigs.forEach(config => {
                 const button = document.getElementById(config.id);
                 if (button) {
+                    // Supprimer les anciens event listeners s'ils existent
+                    button.replaceWith(button.cloneNode(true));
+                    const newButton = document.getElementById(config.id);
+                    
                     this.buttons.set(config.id, {
-                        element: button,
+                        element: newButton,
                         config
                     });
 
-                    button.addEventListener('click', config.handler);
+                    // Ajouter l'event listener
+                    newButton.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log(`🖱️ Button clicked: ${config.id}`);
+                        config.handler();
+                    });
+
+                    console.log(`✅ Button configured: ${config.id}`);
                 }
             });
         }
 
         setupTooltips() {
-            // Appliquer les tooltips aux boutons
-            this.buttons.forEach(({ element, config }) => {
-                if (window.createTooltip) {
-                    window.createTooltip(element, {
-                        text: config.tooltip,
-                        position: config.position || 'bottom',
-                        variant: config.variant || 'default'
-                    });
-                }
-            });
+            // Attendre que les tooltips soient prêts
+            setTimeout(() => {
+                this.buttons.forEach(({ element, config }) => {
+                    if (window.createTooltip) {
+                        window.createTooltip(element, {
+                            text: config.tooltip,
+                            position: config.position || 'bottom',
+                            variant: config.variant || 'default'
+                        });
+                    }
+                });
+            }, 200);
         }
 
         setupEventListeners() {
             // Écouter les changements de thème
             document.addEventListener('themeChanged', (e) => {
                 this.updateThemeToggle();
-            });
-
-            // Écouter les événements des sidebars
-            document.addEventListener('sidebarOpened', (e) => {
-                this.setButtonActive(e.detail.buttonId, true);
-            });
-
-            document.addEventListener('sidebarClosed', (e) => {
-                this.setButtonActive(e.detail.buttonId, false);
             });
 
             // Raccourcis clavier
@@ -126,6 +134,7 @@
 
         // Handlers des boutons
         toggleTheme() {
+            console.log('🎨 Toggle theme called');
             const currentTheme = document.documentElement.getAttribute('data-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
             
@@ -143,21 +152,22 @@
         }
 
         showModels() {
+            console.log('🎛️ Show models called');
             this.toggleSidebar('models-sidebar', 'models-btn');
-            console.log('🎛️ Models sidebar toggled');
         }
 
         showSettings() {
+            console.log('⚙️ Show settings called');
             this.toggleSidebar('settings-sidebar', 'settings-btn');
-            console.log('⚙️ Settings sidebar toggled');
         }
 
         showPreprompts() {
+            console.log('📝 Show preprompts called');
             this.toggleSidebar('preprompts-sidebar', 'preprompts-btn');
-            console.log('📝 Preprompts sidebar toggled');
         }
 
         logout() {
+            console.log('👋 Logout called');
             if (confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
                 this.performLogout();
             }
@@ -165,8 +175,12 @@
 
         // Méthodes utilitaires
         toggleSidebar(sidebarId, buttonId) {
+            console.log(`🔄 Toggle sidebar: ${sidebarId}`);
             const sidebar = document.getElementById(sidebarId);
-            if (!sidebar) return;
+            if (!sidebar) {
+                console.warn(`Sidebar not found: ${sidebarId}`);
+                return;
+            }
 
             const isHidden = sidebar.classList.contains('hidden');
             
@@ -176,10 +190,7 @@
             if (isHidden) {
                 sidebar.classList.remove('hidden');
                 this.setButtonActive(buttonId, true);
-                
-                document.dispatchEvent(new CustomEvent('sidebarOpened', {
-                    detail: { sidebarId, buttonId }
-                }));
+                console.log(`✅ Sidebar opened: ${sidebarId}`);
             }
         }
 
@@ -193,8 +204,6 @@
             this.buttons.forEach(({ element }) => {
                 element.classList.remove('active');
             });
-
-            document.dispatchEvent(new CustomEvent('allSidebarsClosed'));
         }
 
         setButtonActive(buttonId, active) {
@@ -227,15 +236,17 @@
                 const currentTheme = document.documentElement.getAttribute('data-theme');
                 const icon = themeButton.element.querySelector('i');
                 
-                if (currentTheme === 'dark') {
-                    icon.className = 'fas fa-sun';
-                    if (window.updateTooltip) {
-                        window.updateTooltip(themeButton.element, 'Passer au thème clair');
-                    }
-                } else {
-                    icon.className = 'fas fa-moon';
-                    if (window.updateTooltip) {
-                        window.updateTooltip(themeButton.element, 'Passer au thème sombre');
+                if (icon) {
+                    if (currentTheme === 'dark') {
+                        icon.className = 'fas fa-sun';
+                        if (window.updateTooltip) {
+                            window.updateTooltip(themeButton.element, 'Passer au thème clair');
+                        }
+                    } else {
+                        icon.className = 'fas fa-moon';
+                        if (window.updateTooltip) {
+                            window.updateTooltip(themeButton.element, 'Passer au thème sombre');
+                        }
                     }
                 }
             }
@@ -296,13 +307,25 @@
 
     // Initialisation
     function initHeader() {
+        if (headerManager) {
+            console.log('Header manager already exists');
+            return;
+        }
+        
         headerManager = new HeaderManager();
         headerManager.init();
+        
+        // Exposer globalement
+        window.headerManager = headerManager;
+        window.showSettings = () => headerManager?.showSettings();
+        window.showModels = () => headerManager?.showModels();
+        window.showPreprompts = () => headerManager?.showPreprompts();
     }
 
     // Écouter l'événement de chargement du composant
     window.addEventListener('componentLoaded', function(e) {
         if (e.detail.componentPath.includes('header')) {
+            console.log('🎯 Header component loaded event received');
             initHeader();
         }
     });
@@ -310,16 +333,18 @@
     // Si le composant est déjà chargé, l'initialiser
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(initHeader, 100);
+            setTimeout(() => {
+                if (document.querySelector('.main-header')) {
+                    initHeader();
+                }
+            }, 200);
         });
     } else {
-        setTimeout(initHeader, 100);
+        setTimeout(() => {
+            if (document.querySelector('.main-header')) {
+                initHeader();
+            }
+        }, 200);
     }
-
-    // Exposer globalement pour les tests et autres composants
-    window.headerManager = headerManager;
-    window.showSettings = () => headerManager?.showSettings();
-    window.showModels = () => headerManager?.showModels();
-    window.showPreprompts = () => headerManager?.showPreprompts();
 
 })();
