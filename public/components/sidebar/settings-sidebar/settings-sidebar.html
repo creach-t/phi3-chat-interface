@@ -1,0 +1,95 @@
+<div class="sidebar-header">
+    <h3><i class="fas fa-cog"></i> Paramètres du modèle</h3>
+    <button class="close-btn" data-tooltip="Fermer" data-tooltip-position="left">
+        <i class="fas fa-times"></i>
+    </button>
+</div>
+
+<div class="settings-content">
+    <div class="settings-group">
+        <label for="temperature-slider">
+            <i class="fas fa-thermometer-half"></i>
+            Température
+            <span class="value-display" id="temperature-value">0.7</span>
+        </label>
+        <input type="range" id="temperature-slider" min="0.1" max="2.0" step="0.1" value="0.7"
+               data-tooltip="Contrôle la créativité (0.1 = conservateur, 2.0 = créatif)"
+               data-tooltip-position="top">
+        <small>Contrôle la créativité (0.1 = conservateur, 2.0 = créatif)</small>
+    </div>
+
+    <div class="settings-group">
+        <label for="max-tokens-slider">
+            <i class="fas fa-text-width"></i>
+            Tokens max
+            <span class="value-display" id="max-tokens-value">512</span>
+        </label>
+        <input type="range" id="max-tokens-slider" min="50" max="2048" step="50" value="512"
+               data-tooltip="Longueur maximale de la réponse"
+               data-tooltip-position="top">
+        <small>Longueur maximale de la réponse</small>
+    </div>
+
+    <div class="settings-group">
+        <label for="top-p-slider">
+            <i class="fas fa-layer-group"></i>
+            Top-P
+            <span class="value-display" id="top-p-value">0.95</span>
+        </label>
+        <input type="range" id="top-p-slider" min="0.1" max="1.0" step="0.05" value="0.95"
+               data-tooltip="Diversité du vocabulaire (nucleus sampling)"
+               data-tooltip-position="top">
+        <small>Diversité du vocabulaire (nucleus sampling)</small>
+    </div>
+
+    <div class="settings-group">
+        <label for="context-size-slider">
+            <i class="fas fa-memory"></i>
+            Taille contexte
+            <span class="value-display" id="context-size-value">2048</span>
+        </label>
+        <input type="range" id="context-size-slider" min="512" max="8192" step="256" value="2048"
+               data-tooltip="Mémoire de la conversation"
+               data-tooltip-position="top">
+        <small>Mémoire de la conversation</small>
+    </div>
+
+    <div class="settings-group">
+        <label for="repeat-penalty-slider">
+            <i class="fas fa-redo"></i>
+            Pénalité répétition
+            <span class="value-display" id="repeat-penalty-value">1.1</span>
+        </label>
+        <input type="range" id="repeat-penalty-slider" min="0.8" max="1.5" step="0.1" value="1.1"
+               data-tooltip="Évite les répétitions (1.0 = aucune pénalité)"
+               data-tooltip-position="top">
+        <small>Évite les répétitions (1.0 = aucune pénalité)</small>
+    </div>
+
+    <div class="settings-group">
+        <label for="seed-input">
+            <i class="fas fa-random"></i>
+            Seed (aléatoire si -1)
+        </label>
+        <input type="number" id="seed-input" value="-1" min="-1" max="999999"
+               data-tooltip="Pour reproduire des résultats identiques (-1 = aléatoire)"
+               data-tooltip-position="top">
+        <small>Pour reproduire des résultats identiques</small>
+    </div>
+
+    <div class="settings-actions">
+        <button id="reset-params" class="btn-secondary"
+                data-tooltip="Remettre les paramètres par défaut"
+                data-tooltip-position="top">
+            <i class="fas fa-undo"></i>
+            Réinitialiser
+        </button>
+        <button id="save-params" class="btn-primary"
+                data-tooltip="Sauvegarder les paramètres actuels"
+                data-tooltip-position="top"
+                data-tooltip-variant="success">
+            <i class="fas fa-save"></i>
+            Sauvegarder
+        </button>
+    </div>
+</div>
