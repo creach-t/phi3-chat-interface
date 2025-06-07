@@ -109,7 +109,7 @@
         }
 
         hideUrlValidation() {
-            const validation = this.elements.modelUrl?.parentNode?.querySelector('.url-validation');
+            const validation = this.elements.modelUrl.parentNode.querySelector('.url-validation');
             if (validation) {
                 validation.remove();
             }
@@ -120,13 +120,13 @@
             const customName = this.elements.modelFilename.value.trim();
             
             if (!this.isValidModelUrl(url)) {
-                this.showError('URL invalide');
+                alert('Veuillez entrer une URL valide');
                 return;
             }
 
             const downloadId = Date.now().toString();
             const filename = customName || this.extractFilenameFromUrl(url);
-
+            
             // Créer l'objet de téléchargement
             const download = {
                 id: downloadId,
@@ -139,23 +139,23 @@
                 downloaded: 0
             };
 
-            // Ajouter à la liste des téléchargements
             this.downloads.set(downloadId, download);
             this.showDownloadsSection();
             this.renderDownloadItem(download);
-
-            // Simuler le téléchargement (à remplacer par la vraie logique)
+            
+            // Simuler le téléchargement (remplacer par vraie logique)
             this.simulateDownload(downloadId);
-
+            
             // Nettoyer le formulaire
             this.clearForm();
+            
+            console.log('📥 Download started:', filename);
         }
 
         extractFilenameFromUrl(url) {
             try {
-                const urlObj = new URL(url);
-                const pathParts = urlObj.pathname.split('/');
-                return pathParts[pathParts.length - 1] || 'model.gguf';
+                const urlParts = url.split('/');
+                return urlParts[urlParts.length - 1] || 'model.gguf';
             } catch {
                 return 'model.gguf';
             }
@@ -165,61 +165,45 @@
             const download = this.downloads.get(downloadId);
             if (!download) return;
 
-            // Simuler une taille de fichier
-            download.size = Math.random() * 1000000000 + 100000000; // 100MB à 1GB
-
+            // Simuler la progression (remplacer par vraie API)
             const interval = setInterval(() => {
-                if (download.status !== 'downloading') {
-                    clearInterval(interval);
-                    return;
-                }
+                download.progress += Math.random() * 10;
+                download.downloaded = Math.floor((download.progress / 100) * 1024 * 1024 * 100); // 100MB simulé
+                download.size = 1024 * 1024 * 100; // 100MB simulé
 
-                // Simuler le progrès
-                const increment = Math.random() * 0.05 + 0.01; // 1-6% par step
-                download.progress = Math.min(download.progress + increment, 1);
-                download.downloaded = download.progress * download.size;
+                if (download.progress >= 100) {
+                    download.progress = 100;
+                    download.status = 'completed';
+                    clearInterval(interval);
+                    
+                    // Ajouter le modèle à la liste
+                    setTimeout(() => {
+                        this.addModelToList(download);
+                        this.removeDownloadItem(downloadId);
+                    }, 1000);
+                } else if (Math.random() < 0.05) { // 5% chance d'erreur pour simulation
+                    download.status = 'error';
+                    clearInterval(interval);
+                }
 
                 this.updateDownloadItem(download);
-
-                // Finaliser le téléchargement
-                if (download.progress >= 1) {
-                    download.status = 'completed';
-                    download.progress = 1;
-                    this.updateDownloadItem(download);
-                    
-                    // Ajouter aux modèles après un délai
-                    setTimeout(() => {
-                        this.addToModels(download);
-                        this.removeDownload(downloadId);
-                    }, 1000);
-                    
-                    clearInterval(interval);
-                }
-            }, 200);
-
-            // Simuler une erreur occasionnelle
-            if (Math.random() < 0.1) { // 10% de chance d'erreur
-                setTimeout(() => {
-                    download.status = 'error';
-                    this.updateDownloadItem(download);
-                    clearInterval(interval);
-                }, Math.random() * 3000 + 1000);
-            }
+            }, 500);
         }
 
-        addToModels(download) {
+        addModelToList(download) {
             const model = {
                 id: Date.now().toString(),
                 name: download.filename,
                 path: `/models/${download.filename}`,
                 size: download.size,
-                dateAdded: new Date(),
-                active: false
+                isActive: false,
+                downloadDate: new Date()
             };
 
             this.models.push(model);
             this.renderModels();
-            this.showSuccess(`Modèle "${download.filename}" ajouté avec succès`);
+            
+            console.log('✅ Model added to list:', model.name);
         }
 
         showDownloadsSection() {
@@ -238,12 +222,9 @@
             const item = document.createElement('div');
             item.className = `download-item ${download.status}`;
             item.id = `download-${download.id}`;
-            
             item.innerHTML = this.getDownloadItemHTML(download);
             
-            if (this.elements.downloadsList) {
-                this.elements.downloadsList.appendChild(item);
-            }
+            this.elements.downloadsList.appendChild(item);
         }
 
         updateDownloadItem(download) {
@@ -254,35 +235,59 @@
             }
         }
 
+        removeDownloadItem(downloadId) {
+            const item = document.getElementById(`download-${downloadId}`);
+            if (item) {
+                item.style.animation = 'slideOutUp 0.3s ease-out forwards';
+                setTimeout(() => {
+                    item.remove();
+                    this.downloads.delete(downloadId);
+                    this.hideDownloadsSection();
+                }, 300);
+            }
+        }
+
         getDownloadItemHTML(download) {
-            const progressPercent = Math.round(download.progress * 100);
-            const downloadedMB = (download.downloaded / (1024 * 1024)).toFixed(1);
-            const totalMB = (download.size / (1024 * 1024)).toFixed(1);
-            
-            let statusText = 'Téléchargement...';
-            if (download.status === 'completed') statusText = 'Terminé';
-            if (download.status === 'error') statusText = 'Erreur';
+            const statusText = {
+                downloading: 'Téléchargement...',
+                completed: 'Terminé',
+                error: 'Erreur'
+            };
+
+            const formatSize = (bytes) => {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+            };
+
+            const elapsedTime = Math.floor((Date.now() - download.startTime) / 1000);
+            const speed = download.downloaded / elapsedTime || 0;
 
             return `
                 <div class="download-header">
                     <div class="download-name">${download.filename}</div>
-                    <div class="download-status ${download.status}">${statusText}</div>
+                    <div class="download-status ${download.status}">${statusText[download.status]}</div>
                 </div>
                 ${download.status === 'downloading' ? `
                     <div class="download-progress">
-                        <div class="download-progress-bar" style="width: ${progressPercent}%"></div>
+                        <div class="download-progress-bar" style="width: ${download.progress}%"></div>
                     </div>
                 ` : ''}
                 <div class="download-info">
-                    <span>${progressPercent}%</span>
-                    <span>${downloadedMB} MB / ${totalMB} MB</span>
+                    <span>${Math.round(download.progress)}%</span>
+                    <span>${formatSize(download.downloaded)} / ${formatSize(download.size)}</span>
+                    ${download.status === 'downloading' ? `<span>${formatSize(speed)}/s</span>` : ''}
                 </div>
                 ${download.status === 'error' ? `
                     <div class="download-actions">
-                        <button class="btn-icon" onclick="window.modelsSidebarManager.retryDownload('${download.id}')" data-tooltip="Réessayer">
+                        <button class="btn-icon" onclick="window.modelsSidebarManager.retryDownload('${download.id}')" 
+                                data-tooltip="Réessayer" data-tooltip-position="top">
                             <i class="fas fa-redo"></i>
                         </button>
-                        <button class="btn-icon delete" onclick="window.modelsSidebarManager.removeDownload('${download.id}')" data-tooltip="Supprimer">
+                        <button class="btn-icon delete" onclick="window.modelsSidebarManager.cancelDownload('${download.id}')" 
+                                data-tooltip="Supprimer" data-tooltip-position="top">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -290,51 +295,32 @@
             `;
         }
 
-        removeDownload(downloadId) {
-            this.downloads.delete(downloadId);
-            const item = document.getElementById(`download-${downloadId}`);
-            if (item) {
-                item.remove();
-            }
-            this.hideDownloadsSection();
-        }
-
-        retryDownload(downloadId) {
-            const download = this.downloads.get(downloadId);
-            if (download) {
-                download.status = 'downloading';
-                download.progress = 0;
-                download.downloaded = 0;
-                this.updateDownloadItem(download);
-                this.simulateDownload(downloadId);
-            }
-        }
-
-        async loadModels() {
+        loadModels() {
             // Simuler le chargement des modèles existants
             setTimeout(() => {
-                // Modèles d'exemple
+                // Exemple de modèles par défaut
                 this.models = [
                     {
                         id: '1',
                         name: 'phi-3-mini-4k-instruct.gguf',
                         path: '/models/phi-3-mini-4k-instruct.gguf',
-                        size: 2400000000,
-                        dateAdded: new Date(Date.now() - 86400000),
-                        active: true
+                        size: 2.3 * 1024 * 1024 * 1024, // 2.3GB
+                        isActive: true,
+                        downloadDate: new Date(Date.now() - 86400000) // Hier
                     },
                     {
                         id: '2',
                         name: 'llama-2-7b-chat.gguf',
                         path: '/models/llama-2-7b-chat.gguf',
-                        size: 3800000000,
-                        dateAdded: new Date(Date.now() - 172800000),
-                        active: false
+                        size: 3.8 * 1024 * 1024 * 1024, // 3.8GB
+                        isActive: false,
+                        downloadDate: new Date(Date.now() - 172800000) // Il y a 2 jours
                     }
                 ];
                 
+                this.activeModel = this.models.find(m => m.isActive);
                 this.renderModels();
-            }, 500);
+            }, 1000);
         }
 
         renderModels() {
@@ -344,7 +330,7 @@
                 this.elements.modelsList.innerHTML = `
                     <div class="models-empty">
                         <i class="fas fa-cube"></i>
-                        <h5>Aucun modèle disponible</h5>
+                        <h5>Aucun modèle</h5>
                         <p>Téléchargez votre premier modèle depuis Hugging Face pour commencer.</p>
                     </div>
                 `;
@@ -352,48 +338,68 @@
             }
 
             this.elements.modelsList.innerHTML = this.models.map(model => this.getModelItemHTML(model)).join('');
+            
+            // Réappliquer les tooltips
+            setTimeout(() => {
+                if (window.tooltipManager) {
+                    window.tooltipManager.initDataTooltips();
+                }
+            }, 100);
         }
 
         getModelItemHTML(model) {
-            const sizeMB = (model.size / (1024 * 1024)).toFixed(0);
-            const dateStr = model.dateAdded.toLocaleDateString();
-            
+            const formatSize = (bytes) => {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+            };
+
+            const formatDate = (date) => {
+                return date.toLocaleDateString('fr-FR', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                });
+            };
+
             return `
-                <div class="model-item ${model.active ? 'active' : ''}" data-model-id="${model.id}">
+                <div class="model-item ${model.isActive ? 'active' : ''}">
                     <div class="model-header">
-                        <div class="model-name ${model.active ? 'active' : ''}">
+                        <div class="model-name ${model.isActive ? 'active' : ''}">
                             <i class="fas fa-cube"></i>
                             ${model.name}
                         </div>
-                        <div class="model-badge ${model.active ? 'active' : 'inactive'}">
-                            ${model.active ? 'Actif' : 'Inactif'}
+                        <div class="model-badge ${model.isActive ? 'active' : 'inactive'}">
+                            ${model.isActive ? 'Actif' : 'Inactif'}
                         </div>
                     </div>
                     <div class="model-info">
                         <div class="model-size">
                             <i class="fas fa-hdd"></i>
-                            ${sizeMB} MB
+                            ${formatSize(model.size)}
                         </div>
                         <div class="model-path">${model.path}</div>
                     </div>
                     <div class="model-actions">
-                        ${!model.active ? `
+                        ${!model.isActive ? `
                             <button class="btn-icon load" onclick="window.modelsSidebarManager.loadModel('${model.id}')" 
-                                    data-tooltip="Charger ce modèle" data-tooltip-variant="primary">
+                                    data-tooltip="Charger ce modèle" data-tooltip-position="top" data-tooltip-variant="primary">
                                 <i class="fas fa-play"></i>
                             </button>
                         ` : `
                             <button class="btn-icon" onclick="window.modelsSidebarManager.unloadModel('${model.id}')" 
-                                    data-tooltip="Décharger le modèle">
+                                    data-tooltip="Décharger le modèle" data-tooltip-position="top">
                                 <i class="fas fa-stop"></i>
                             </button>
                         `}
                         <button class="btn-icon" onclick="window.modelsSidebarManager.showModelInfo('${model.id}')" 
-                                data-tooltip="Informations du modèle">
+                                data-tooltip="Informations" data-tooltip-position="top">
                             <i class="fas fa-info"></i>
                         </button>
                         <button class="btn-icon delete" onclick="window.modelsSidebarManager.deleteModel('${model.id}')" 
-                                data-tooltip="Supprimer le modèle" data-tooltip-variant="danger">
+                                data-tooltip="Supprimer" data-tooltip-position="top" data-tooltip-variant="danger">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -402,62 +408,101 @@
         }
 
         loadModel(modelId) {
-            // Décharger tous les autres modèles
-            this.models.forEach(model => model.active = false);
-            
-            // Charger le modèle sélectionné
             const model = this.models.find(m => m.id === modelId);
-            if (model) {
-                model.active = true;
-                this.activeModel = model;
-                this.renderModels();
-                this.showSuccess(`Modèle "${model.name}" chargé`);
-                
-                // Émettre un événement
-                document.dispatchEvent(new CustomEvent('modelLoaded', {
-                    detail: { model }
-                }));
+            if (!model) return;
+
+            // Décharger l'ancien modèle
+            if (this.activeModel) {
+                this.activeModel.isActive = false;
             }
+
+            // Charger le nouveau
+            model.isActive = true;
+            this.activeModel = model;
+            
+            this.renderModels();
+            console.log('🔄 Model loaded:', model.name);
+            
+            // Notifier les autres composants
+            document.dispatchEvent(new CustomEvent('modelChanged', {
+                detail: { model }
+            }));
         }
 
         unloadModel(modelId) {
             const model = this.models.find(m => m.id === modelId);
-            if (model) {
-                model.active = false;
-                this.activeModel = null;
-                this.renderModels();
-                this.showSuccess(`Modèle "${model.name}" déchargé`);
-                
-                // Émettre un événement
-                document.dispatchEvent(new CustomEvent('modelUnloaded', {
-                    detail: { model }
-                }));
-            }
+            if (!model) return;
+
+            model.isActive = false;
+            this.activeModel = null;
+            
+            this.renderModels();
+            console.log('⏹️ Model unloaded:', model.name);
+            
+            document.dispatchEvent(new CustomEvent('modelUnloaded', {
+                detail: { model }
+            }));
         }
 
         deleteModel(modelId) {
             const model = this.models.find(m => m.id === modelId);
-            if (model && confirm(`Êtes-vous sûr de vouloir supprimer "${model.name}" ?`)) {
+            if (!model) return;
+
+            if (confirm(`Êtes-vous sûr de vouloir supprimer "${model.name}" ?`)) {
                 this.models = this.models.filter(m => m.id !== modelId);
-                if (model.active) {
+                
+                if (model.isActive) {
                     this.activeModel = null;
                 }
+                
                 this.renderModels();
-                this.showSuccess(`Modèle "${model.name}" supprimé`);
+                console.log('🗑️ Model deleted:', model.name);
             }
         }
 
         showModelInfo(modelId) {
             const model = this.models.find(m => m.id === modelId);
-            if (model) {
-                const sizeMB = (model.size / (1024 * 1024)).toFixed(1);
-                alert(`Informations du modèle:\n\nNom: ${model.name}\nTaille: ${sizeMB} MB\nChemin: ${model.path}\nAjouté le: ${model.dateAdded.toLocaleString()}\nStatut: ${model.active ? 'Actif' : 'Inactif'}`);
+            if (!model) return;
+
+            const formatSize = (bytes) => {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+            };
+
+            alert(`Informations du modèle:
+            
+Nom: ${model.name}
+Taille: ${formatSize(model.size)}
+Chemin: ${model.path}
+Statut: ${model.isActive ? 'Actif' : 'Inactif'}
+Téléchargé le: ${model.downloadDate.toLocaleDateString('fr-FR')}`);
+        }
+
+        retryDownload(downloadId) {
+            const download = this.downloads.get(downloadId);
+            if (download) {
+                download.status = 'downloading';
+                download.progress = 0;
+                download.startTime = Date.now();
+                this.simulateDownload(downloadId);
             }
         }
 
+        cancelDownload(downloadId) {
+            this.removeDownloadItem(downloadId);
+        }
+
         clearForm() {
-            if (this.elements.modelUrl) this.elements.modelUrl.value = '';
-            if (this.elements.modelFilename) this.elements.modelFilename.value = '';
+            if (this.elements.modelUrl) {
+                this.elements.modelUrl.value = '';
+                this.elements.modelUrl.classList.remove('valid', 'invalid');
+            }
+            if (this.elements.modelFilename) {
+                this.elements.modelFilename.value = '';
+            }
             this.hideUrlValidation();
             this.elements.downloadBtn.disabled = true;
         }
@@ -467,21 +512,11 @@
             if (sidebar) {
                 sidebar.classList.add('hidden');
                 
-                // Notifier le header manager
+                // Désactiver le bouton header
                 if (window.headerManager) {
                     window.headerManager.setButtonActive('models-btn', false);
                 }
             }
-        }
-
-        showSuccess(message) {
-            console.log(`✅ ${message}`);
-            // TODO: Implémenter un système de notifications toast
-        }
-
-        showError(message) {
-            console.error(`❌ ${message}`);
-            // TODO: Implémenter un système de notifications toast
         }
     }
 
@@ -507,7 +542,7 @@
         }
     });
 
-    // Si le composant est déjà chargé
+    // Si le composant est déjà chargé, l'initialiser
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => {
