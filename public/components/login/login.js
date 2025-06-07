@@ -10,6 +10,7 @@
         const loginError = document.getElementById('login-error');
         const usernameInput = document.getElementById('username');
         const passwordInput = document.getElementById('password');
+        const loginBtn = document.querySelector('.login-btn');
 
         if (!loginForm) {
             console.warn('Login form not found');
@@ -30,6 +31,26 @@
             }
         }
 
+        function setLoading(loading) {
+            if (loginBtn) {
+                if (loading) {
+                    loginBtn.classList.add('loading');
+                    loginBtn.disabled = true;
+                    const icon = loginBtn.querySelector('i');
+                    if (icon) {
+                        icon.className = 'fas fa-spinner';
+                    }
+                } else {
+                    loginBtn.classList.remove('loading');
+                    loginBtn.disabled = false;
+                    const icon = loginBtn.querySelector('i');
+                    if (icon) {
+                        icon.className = 'fas fa-arrow-right';
+                    }
+                }
+            }
+        }
+
         // Gestion de la soumission du formulaire
         loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -43,7 +64,8 @@
                 return;
             }
 
-            // Simulation de l'authentification (à remplacer par votre logique)
+            setLoading(true);
+
             try {
                 const success = await authenticateUser(username, password);
                 if (success) {
@@ -55,6 +77,8 @@
             } catch (error) {
                 console.error('Erreur d\'authentification:', error);
                 showError('Erreur de connexion. Veuillez réessayer.');
+            } finally {
+                setLoading(false);
             }
         });
 
@@ -63,18 +87,67 @@
             usernameInput.focus();
         }
 
+        // Vérifier l'authentification au chargement
+        checkInitialAuthentication();
+
         console.log('✅ Login component initialized');
     }
 
-    // Fonction d'authentification (à adapter selon vos besoins)
+    // Fonction d'authentification utilisant l'API réelle
     async function authenticateUser(username, password) {
-        // Simulation - à remplacer par un vrai appel API
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                // Exemple: accepter "admin/admin" pour les tests
-                resolve(username === 'admin' && password === 'admin');
-            }, 1000);
-        });
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ username, password }),
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                console.log('🎉 Authentication successful');
+                return true;
+            } else {
+                console.log('❌ Authentication failed:', data.error);
+                return false;
+            }
+        } catch (error) {
+            console.error('❌ Authentication error:', error);
+            
+            // Fallback pour le développement local - à supprimer en production
+            if (error.message.includes('fetch') || error.name === 'TypeError') {
+                console.log('🔄 Fallback authentication (dev mode)');
+                // Simulation pour développement local
+                return new Promise((resolve) => {
+                    setTimeout(() => {
+                        const isValid = username === 'admin' && password === 'admin';
+                        console.log(isValid ? '✅ Dev auth success' : '❌ Dev auth failed');
+                        resolve(isValid);
+                    }, 1000);
+                });
+            }
+            
+            throw error;
+        }
+    }
+
+    // Vérifier l'authentification initiale
+    async function checkInitialAuthentication() {
+        try {
+            const response = await fetch('/api/check-auth', { 
+                credentials: 'include' 
+            });
+            const data = await response.json();
+            
+            if (data.authenticated) {
+                console.log('🔑 User already authenticated');
+                transitionToChat();
+            }
+        } catch (error) {
+            console.log('ℹ️ No existing authentication found');
+            // Pas d'authentification existante, rester sur la page de login
+        }
     }
 
     // Transition vers l'interface de chat
@@ -89,6 +162,56 @@
             // Déclencher un événement pour notifier que l'utilisateur s'est connecté
             window.dispatchEvent(new CustomEvent('userLoggedIn'));
             console.log('🎉 User logged in successfully');
+        }
+    }
+
+    // Fonction de déconnexion (appelée depuis le header)
+    async function handleLogout() {
+        try {
+            await fetch('/api/logout', {
+                method: 'POST',
+                credentials: 'include',
+            });
+            
+            // Retour à la page de login
+            const loginPage = document.getElementById('login-page');
+            const chatPage = document.getElementById('chat-page');
+
+            if (loginPage && chatPage) {
+                chatPage.classList.add('hidden');
+                loginPage.classList.remove('hidden');
+                
+                // Nettoyer le formulaire
+                const form = document.getElementById('login-form');
+                if (form) {
+                    form.reset();
+                }
+                
+                // Masquer les erreurs
+                const errorDiv = document.getElementById('login-error');
+                if (errorDiv) {
+                    errorDiv.style.display = 'none';
+                }
+                
+                // Focus sur le champ username
+                const usernameInput = document.getElementById('username');
+                if (usernameInput) {
+                    setTimeout(() => usernameInput.focus(), 100);
+                }
+                
+                // Déclencher un événement
+                window.dispatchEvent(new CustomEvent('userLoggedOut'));
+                console.log('👋 User logged out successfully');
+            }
+        } catch (error) {
+            console.error('❌ Logout error:', error);
+            // Même en cas d'erreur, déconnecter côté client
+            const loginPage = document.getElementById('login-page');
+            const chatPage = document.getElementById('chat-page');
+            if (loginPage && chatPage) {
+                chatPage.classList.add('hidden');
+                loginPage.classList.remove('hidden');
+            }
         }
     }
 
@@ -108,10 +231,15 @@
         setTimeout(initLogin, 100);
     }
 
-    // Exposer globalement pour les tests
+    // Exposer globalement pour les tests et autres composants
     window.loginComponent = {
         init: initLogin,
-        authenticate: authenticateUser
+        authenticate: authenticateUser,
+        logout: handleLogout,
+        checkAuth: checkInitialAuthentication
     };
+
+    // Écouter les demandes de déconnexion depuis d'autres composants
+    window.addEventListener('requestLogout', handleLogout);
 
 })();
