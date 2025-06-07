@@ -9,6 +9,8 @@
   padding: 2rem;
   position: relative;
   overflow: hidden;
+  /* S'assurer que les tooltips ne sont pas visibles sur la page de login */
+  min-height: 100vh;
 }
 
 #login-page::before {
@@ -38,6 +40,13 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   position: relative;
   z-index: 1;
+}
+
+/* Masquer les tooltips sur la page de login */
+#login-page .tooltip-text {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
 }
 
 .login-header {
@@ -139,6 +148,12 @@
   transform: translateY(0);
 }
 
+.login-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .error {
   background: rgba(239, 68, 68, 0.1);
   color: var(--accent-danger);
@@ -146,6 +161,25 @@
   border-radius: var(--radius-md);
   border: 1px solid rgba(239, 68, 68, 0.2);
   font-size: 0.9rem;
+  display: none;
+}
+
+.error:not(:empty) {
+  display: block;
+}
+
+/* Animation de chargement pour le bouton */
+.login-btn.loading {
+  pointer-events: none;
+}
+
+.login-btn.loading i {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* Responsive pour mobile */
@@ -153,5 +187,38 @@
   .login-container {
     padding: 2rem;
     margin: 1rem;
+  }
+  
+  #login-page {
+    padding: 1rem;
+  }
+}
+
+/* S'assurer que les éléments du login sont au-dessus des tooltips */
+.login-container * {
+  position: relative;
+  z-index: 10;
+}
+
+/* Focus states améliorés */
+.input-group input:focus,
+.login-btn:focus {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* Animation d'entrée pour le conteneur */
+.login-container {
+  animation: slideInUp 0.6s ease-out;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
