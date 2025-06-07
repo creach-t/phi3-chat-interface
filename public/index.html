@@ -245,34 +245,49 @@
                 });
         });
 
-        // Ajouter des gestionnaires pour fermer les sidebars
-        document.addEventListener('DOMContentLoaded', function() {
-            // Fermer les sidebars avec les boutons close
-            document.addEventListener('click', function(e) {
-                if (e.target.closest('#close-preprompts')) {
-                    document.getElementById('preprompts-sidebar').classList.add('hidden');
+        // Gestionnaire global pour les clics de fermeture des sidebars
+        document.addEventListener('click', function(e) {
+            // Fermer les sidebars avec les boutons close (délégation d'événements)
+            if (e.target.closest('.close-btn')) {
+                const sidebar = e.target.closest('.sidebar');
+                if (sidebar) {
+                    sidebar.classList.add('hidden');
+                    
+                    // Désactiver le bouton header correspondant
                     if (window.headerManager) {
-                        window.headerManager.setButtonActive('preprompts-btn', false);
+                        const sidebarId = sidebar.id;
+                        const buttonId = sidebarId.replace('-sidebar', '-btn');
+                        window.headerManager.setButtonActive(buttonId, false);
                     }
+                    
+                    console.log(`🔽 Sidebar closed: ${sidebar.id}`);
                 }
-            });
-
-            // Fermer les sidebars en cliquant en dehors
-            document.addEventListener('click', function(e) {
-                const sidebars = document.querySelectorAll('.sidebar:not(.hidden)');
-                sidebars.forEach(sidebar => {
-                    if (!sidebar.contains(e.target) && !e.target.closest('.control-btn')) {
-                        sidebar.classList.add('hidden');
-                        // Désactiver le bouton correspondant
-                        if (window.headerManager) {
-                            const sidebarId = sidebar.id;
-                            const buttonId = sidebarId.replace('-sidebar', '-btn');
-                            window.headerManager.setButtonActive(buttonId, false);
-                        }
+            }
+            
+            // Fermer les sidebars en cliquant en dehors (mais pas sur les boutons de contrôle)
+            if (!e.target.closest('.sidebar') && !e.target.closest('.control-btn')) {
+                const openSidebars = document.querySelectorAll('.sidebar:not(.hidden)');
+                openSidebars.forEach(sidebar => {
+                    sidebar.classList.add('hidden');
+                    
+                    // Désactiver le bouton correspondant
+                    if (window.headerManager) {
+                        const sidebarId = sidebar.id;
+                        const buttonId = sidebarId.replace('-sidebar', '-btn');
+                        window.headerManager.setButtonActive(buttonId, false);
                     }
                 });
-            });
+            }
         });
+
+        // Test de debug pour vérifier les composants
+        window.testComponents = function() {
+            console.log('🧪 Testing components...');
+            console.log('Header manager:', window.headerManager);
+            console.log('Models sidebar manager:', window.modelsSidebarManager);
+            console.log('Settings sidebar manager:', window.settingsSidebarManager);
+            console.log('Tooltip manager:', window.tooltipManager);
+        };
     </script>
     
     <!-- Scripts modulaires existants -->
