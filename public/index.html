@@ -23,38 +23,10 @@
 
     <!-- Interface principale -->
     <div id="chat-page" class="page hidden">
-        <!-- Header -->
-        <header class="main-header">
-            <div class="header-left">
-                <div class="logo">
-                    <i class="fas fa-robot"></i>
-                    <span>Phi-3 Chat</span>
-                </div>
-                <div class="status-indicator">
-                    <div class="status-dot"></div>
-                    <span>Connecté</span>
-                </div>
-            </div>
-            
-            <div class="header-controls">
-                <button id="theme-toggle" class="control-btn">
-                    <i class="fas fa-moon"></i>
-                </button>
-                <!-- NOUVEAU: Bouton gestion des modèles -->
-                <button id="models-btn" class="control-btn">
-                    <i class="fas fa-cube"></i>
-                </button>
-                <button id="settings-btn" class="control-btn">
-                    <i class="fas fa-cog"></i>
-                </button>
-                <button id="preprompts-btn" class="control-btn">
-                    <i class="fas fa-bookmark"></i>
-                </button>
-                <button id="logout-btn" class="control-btn logout">
-                    <i class="fas fa-sign-out-alt"></i>
-                </button>
-            </div>
-        </header>
+        <!-- Header - maintenant chargé dynamiquement -->
+        <div id="header-container">
+            <!-- Le header sera chargé ici -->
+        </div>
 
         <div class="main-container">
             <!-- NOUVEAU: Sidebar de gestion des modèles -->
@@ -370,17 +342,72 @@
     
     <!-- Initialisation des composants -->
     <script>
-        // Charger le composant login au démarrage
+        // Charger les composants au démarrage
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 Loading login component...');
+            console.log('🚀 Loading components...');
             
+            // Charger le composant login
             window.componentLoader.loadComponent('components/login/login', '#login-page')
                 .then(() => {
-                    console.log('✅ Login component loaded and initialized');
+                    console.log('✅ Login component loaded');
                 })
                 .catch(error => {
                     console.error('❌ Failed to load login component:', error);
                 });
+        });
+
+        // Charger le header quand l'utilisateur se connecte
+        window.addEventListener('userLoggedIn', function() {
+            console.log('🚀 Loading header component...');
+            
+            window.componentLoader.loadComponent('components/header/header', '#header-container')
+                .then(() => {
+                    console.log('✅ Header component loaded');
+                })
+                .catch(error => {
+                    console.error('❌ Failed to load header component:', error);
+                });
+        });
+
+        // Ajouter des gestionnaires pour fermer les sidebars
+        document.addEventListener('DOMContentLoaded', function() {
+            // Fermer les sidebars avec les boutons close
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('#close-models')) {
+                    document.getElementById('models-sidebar').classList.add('hidden');
+                    if (window.headerManager) {
+                        window.headerManager.setButtonActive('models-btn', false);
+                    }
+                }
+                if (e.target.closest('#close-settings')) {
+                    document.getElementById('settings-sidebar').classList.add('hidden');
+                    if (window.headerManager) {
+                        window.headerManager.setButtonActive('settings-btn', false);
+                    }
+                }
+                if (e.target.closest('#close-preprompts')) {
+                    document.getElementById('preprompts-sidebar').classList.add('hidden');
+                    if (window.headerManager) {
+                        window.headerManager.setButtonActive('preprompts-btn', false);
+                    }
+                }
+            });
+
+            // Fermer les sidebars en cliquant en dehors
+            document.addEventListener('click', function(e) {
+                const sidebars = document.querySelectorAll('.sidebar:not(.hidden)');
+                sidebars.forEach(sidebar => {
+                    if (!sidebar.contains(e.target) && !e.target.closest('.control-btn')) {
+                        sidebar.classList.add('hidden');
+                        // Désactiver le bouton correspondant
+                        if (window.headerManager) {
+                            const sidebarId = sidebar.id;
+                            const buttonId = sidebarId.replace('-sidebar', '-btn');
+                            window.headerManager.setButtonActive(buttonId, false);
+                        }
+                    }
+                });
+            });
         });
     </script>
     
