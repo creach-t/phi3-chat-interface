@@ -11,6 +11,8 @@
             this.downloads = new Map();
             this.activeModel = null;
             this.refreshInterval = null;
+            this.retryCount = 0;
+            this.maxRetries = 3;
             
             // Référence au service API
             this.apiService = window.modelsApiService;
@@ -145,38 +147,114 @@
 
         async loadModels() {
             try {
+                // Vérifier l'authentification d'abord
+                if (!this.apiService.isAuthenticated()) {
+                    console.warn('⚠️ Not authenticated, cannot load models');
+                    this.showAuthenticationError();
+                    return;
+                }
+
+                // Afficher un loader
+                this.showLoadingState();
+
                 const response = await this.apiService.listModels();
                 
                 if (response.success) {
                     this.models = response.models || [];
                     this.activeModel = this.models.find(m => m.isActive);
                     this.renderModels();
+                    this.retryCount = 0; // Reset retry count on success
                 } else {
                     console.error('Error loading models:', response.error);
-                    this.showNotification(`Erreur lors du chargement: ${response.error}`, 'error');
+                    this.showLoadingError(response.error);
                 }
             } catch (error) {
                 console.error('Network error loading models:', error);
-                this.showNotification('Erreur de connexion au serveur', 'error');
                 
-                // Afficher un état d'erreur dans la liste
-                if (this.elements.modelsList) {
-                    this.elements.modelsList.innerHTML = `
-                        <div class="models-error">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            <h5>Erreur de connexion</h5>
-                            <p>Impossible de charger les modèles. Vérifiez votre connexion.</p>
-                            <button class="btn-primary btn-sm" onclick="window.modelsSidebarManager.loadModels()">
-                                <i class="fas fa-redo"></i> Réessayer
-                            </button>
-                        </div>
-                    `;
+                // Gérer les différents types d'erreurs
+                if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+                    this.showAuthenticationError();
+                } else if (error.message.includes('fetch') || error.name === 'TypeError') {
+                    this.showConnectionError();
+                } else {
+                    this.showLoadingError(error.message);
                 }
+            }
+        }
+
+        showLoadingState() {
+            if (this.elements.modelsList) {
+                this.elements.modelsList.innerHTML = `
+                    <div class="models-loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <h5>Chargement des modèles...</h5>
+                        <p>Récupération de la liste des modèles disponibles.</p>
+                    </div>
+                `;
+            }
+        }
+
+        showAuthenticationError() {
+            if (this.elements.modelsList) {
+                this.elements.modelsList.innerHTML = `
+                    <div class="models-error">
+                        <i class="fas fa-lock"></i>
+                        <h5>Authentification requise</h5>
+                        <p>Veuillez vous reconnecter pour accéder aux modèles.</p>
+                        <button class="btn-primary btn-sm" onclick="window.location.reload()">
+                            <i class="fas fa-redo"></i> Recharger la page
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        showConnectionError() {
+            if (this.elements.modelsList) {
+                this.elements.modelsList.innerHTML = `
+                    <div class="models-error">
+                        <i class="fas fa-wifi"></i>
+                        <h5>Erreur de connexion</h5>
+                        <p>Impossible de contacter le serveur. Vérifiez votre connexion.</p>
+                        <button class="btn-primary btn-sm" onclick="window.modelsSidebarManager.retryLoadModels()">
+                            <i class="fas fa-redo"></i> Réessayer
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        showLoadingError(errorMessage) {
+            if (this.elements.modelsList) {
+                this.elements.modelsList.innerHTML = `
+                    <div class="models-error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h5>Erreur de chargement</h5>
+                        <p>${errorMessage}</p>
+                        <button class="btn-primary btn-sm" onclick="window.modelsSidebarManager.retryLoadModels()">
+                            <i class="fas fa-redo"></i> Réessayer
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        retryLoadModels() {
+            if (this.retryCount < this.maxRetries) {
+                this.retryCount++;
+                console.log(`🔄 Retrying to load models (attempt ${this.retryCount}/${this.maxRetries})`);
+                this.loadModels();
+            } else {
+                this.showNotification('Nombre maximum de tentatives atteint', 'error');
             }
         }
 
         async loadDownloads() {
             try {
+                if (!this.apiService.isAuthenticated()) {
+                    return;
+                }
+
                 const response = await this.apiService.getDownloads();
                 
                 if (response.success) {
@@ -217,12 +295,6 @@
                 console.error('Model activation error:', error);
                 this.showNotification(`Erreur d'activation: ${error.message}`, 'error');
             }
-        }
-
-        async unloadModel(modelId) {
-            // Pour l'instant, il n'y a pas d'endpoint de déchargement spécifique
-            console.log('Model unload requested for:', modelId);
-            this.showNotification('Déchargement des modèles non implémenté côté serveur', 'info');
         }
 
         async deleteModel(modelId) {
@@ -411,7 +483,7 @@
                 const hasActiveDownloads = Array.from(this.downloads.values())
                     .some(d => d.status === 'downloading');
                 
-                if (hasActiveDownloads) {
+                if (hasActiveDownloads && this.apiService.isAuthenticated()) {
                     this.loadDownloads();
                 }
             }, 2000);
