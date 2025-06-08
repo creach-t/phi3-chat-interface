@@ -243,6 +243,15 @@
                 .catch(error => {
                     console.error('❌ Failed to load settings sidebar component:', error);
                 });
+
+            // Charger la sidebar params
+            window.componentLoader.loadComponent('components/sidebar/params-sidebar/params-sidebar', '#params-sidebar')
+                .then(() => {
+                    console.log('✅ Params sidebar component loaded');
+                })
+                .catch(error => {
+                    console.error('❌ Failed to load params sidebar component:', error);
+                });
         });
 
         // Gestionnaire global pour les clics de fermeture des sidebars
@@ -286,6 +295,7 @@
             console.log('Header manager:', window.headerManager);
             console.log('Models sidebar manager:', window.modelsSidebarManager);
             console.log('Settings sidebar manager:', window.settingsSidebarManager);
+            console.log('Params sidebar manager:', window.paramsSidebarManager);
             console.log('Tooltip manager:', window.tooltipManager);
         };
     </script>
