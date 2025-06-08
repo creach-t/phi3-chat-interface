@@ -5,29 +5,32 @@
 class ModelsApiService {
     constructor() {
         this.baseUrl = '/api/models';
-        this.authToken = null;
     }
 
     /**
-     * Définir le token d'authentification
-     */
-    setAuthToken(token) {
-        this.authToken = token;
-    }
-
-    /**
-     * Obtenir les headers par défaut avec authentification
+     * Obtenir les headers par défaut avec authentification par cookies
      */
     getHeaders() {
-        const headers = {
+        return {
             'Content-Type': 'application/json'
         };
+    }
 
-        if (this.authToken) {
-            headers['Authorization'] = `Bearer ${this.authToken}`;
+    /**
+     * Obtenir les options de fetch avec credentials pour les cookies
+     */
+    getFetchOptions(method = 'GET', body = null) {
+        const options = {
+            method,
+            headers: this.getHeaders(),
+            credentials: 'include' // Important pour envoyer les cookies de session
+        };
+
+        if (body) {
+            options.body = JSON.stringify(body);
         }
 
-        return headers;
+        return options;
     }
 
     /**
@@ -46,11 +49,7 @@ class ModelsApiService {
      */
     async listModels() {
         try {
-            const response = await fetch(this.baseUrl, {
-                method: 'GET',
-                headers: this.getHeaders()
-            });
-            
+            const response = await fetch(this.baseUrl, this.getFetchOptions('GET'));
             return await this.handleResponse(response);
         } catch (error) {
             console.error('Error listing models:', error);
@@ -68,12 +67,7 @@ class ModelsApiService {
                 body.filename = filename;
             }
 
-            const response = await fetch(`${this.baseUrl}/download`, {
-                method: 'POST',
-                headers: this.getHeaders(),
-                body: JSON.stringify(body)
-            });
-            
+            const response = await fetch(`${this.baseUrl}/download`, this.getFetchOptions('POST', body));
             return await this.handleResponse(response);
         } catch (error) {
             console.error('Error downloading model:', error);
@@ -86,12 +80,7 @@ class ModelsApiService {
      */
     async activateModel(filename) {
         try {
-            const response = await fetch(`${this.baseUrl}/activate`, {
-                method: 'POST',
-                headers: this.getHeaders(),
-                body: JSON.stringify({ filename })
-            });
-            
+            const response = await fetch(`${this.baseUrl}/activate`, this.getFetchOptions('POST', { filename }));
             return await this.handleResponse(response);
         } catch (error) {
             console.error('Error activating model:', error);
@@ -104,11 +93,8 @@ class ModelsApiService {
      */
     async deleteModel(filename) {
         try {
-            const response = await fetch(`${this.baseUrl}/${encodeURIComponent(filename)}`, {
-                method: 'DELETE',
-                headers: this.getHeaders()
-            });
-            
+            const response = await fetch(`${this.baseUrl}/${encodeURIComponent(filename)}`, 
+                this.getFetchOptions('DELETE'));
             return await this.handleResponse(response);
         } catch (error) {
             console.error('Error deleting model:', error);
@@ -125,11 +111,7 @@ class ModelsApiService {
                 ? `${this.baseUrl}/downloads/${downloadId}`
                 : `${this.baseUrl}/downloads`;
 
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: this.getHeaders()
-            });
-            
+            const response = await fetch(url, this.getFetchOptions('GET'));
             return await this.handleResponse(response);
         } catch (error) {
             console.error('Error getting downloads:', error);
@@ -142,11 +124,8 @@ class ModelsApiService {
      */
     async cancelDownload(downloadId) {
         try {
-            const response = await fetch(`${this.baseUrl}/downloads/${downloadId}/cancel`, {
-                method: 'POST',
-                headers: this.getHeaders()
-            });
-            
+            const response = await fetch(`${this.baseUrl}/downloads/${downloadId}/cancel`, 
+                this.getFetchOptions('POST'));
             return await this.handleResponse(response);
         } catch (error) {
             console.error('Error canceling download:', error);
@@ -159,11 +138,8 @@ class ModelsApiService {
      */
     async cleanupDownloads() {
         try {
-            const response = await fetch(`${this.baseUrl}/downloads/cleanup`, {
-                method: 'POST',
-                headers: this.getHeaders()
-            });
-            
+            const response = await fetch(`${this.baseUrl}/downloads/cleanup`, 
+                this.getFetchOptions('POST'));
             return await this.handleResponse(response);
         } catch (error) {
             console.error('Error cleaning up downloads:', error);
@@ -239,22 +215,23 @@ class ModelsApiService {
         };
         return iconMap[status] || '';
     }
+
+    /**
+     * Tester la connectivité API
+     */
+    async testConnection() {
+        try {
+            const response = await fetch(this.baseUrl, this.getFetchOptions('GET'));
+            return response.ok;
+        } catch (error) {
+            console.error('API connection test failed:', error);
+            return false;
+        }
+    }
 }
 
 // Instance globale du service API
 window.modelsApiService = new ModelsApiService();
 
-// Auto-configuration du token depuis le localStorage/sessionStorage
-document.addEventListener('DOMContentLoaded', function() {
-    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-    if (token) {
-        window.modelsApiService.setAuthToken(token);
-    }
-});
-
-// Écouter les changements de token d'authentification
-window.addEventListener('authTokenChanged', function(event) {
-    if (event.detail && event.detail.token) {
-        window.modelsApiService.setAuthToken(event.detail.token);
-    }
-});
+// Log de démarrage
+console.log('📦 Models API Service initialized with cookie-based authentication');
