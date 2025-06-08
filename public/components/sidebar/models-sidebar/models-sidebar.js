@@ -11,6 +11,9 @@
             this.downloads = new Map();
             this.activeModel = null;
             this.refreshInterval = null;
+            
+            // Référence au service API
+            this.apiService = window.modelsApiService;
         }
 
         init() {
@@ -62,7 +65,7 @@
 
         validateUrl() {
             const url = this.elements.modelUrl.value.trim();
-            const isValid = this.isValidModelUrl(url);
+            const isValid = this.apiService.isValidModelUrl(url);
             
             // Mise à jour visuelle
             if (url) {
@@ -78,19 +81,6 @@
 
             // Activer/désactiver le bouton
             this.elements.downloadBtn.disabled = !isValid || !url;
-        }
-
-        isValidModelUrl(url) {
-            try {
-                const urlObj = new URL(url);
-                return (
-                    urlObj.hostname.includes('huggingface.co') &&
-                    url.includes('.gguf') &&
-                    (url.includes('/resolve/') || url.includes('/blob/'))
-                );
-            } catch {
-                return false;
-            }
         }
 
         showUrlValidation(url, isValid) {
@@ -123,7 +113,7 @@
             const url = this.elements.modelUrl.value.trim();
             const customName = this.elements.modelFilename.value.trim();
             
-            if (!this.isValidModelUrl(url)) {
+            if (!this.apiService.isValidModelUrl(url)) {
                 this.showNotification('Veuillez entrer une URL valide', 'error');
                 return;
             }
@@ -133,26 +123,14 @@
                 this.elements.downloadBtn.disabled = true;
                 this.elements.downloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Démarrage...';
 
-                const response = await fetch('/api/models/download', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${this.getAuthToken()}`
-                    },
-                    body: JSON.stringify({ 
-                        url,
-                        filename: customName || undefined
-                    })
-                });
-
-                const data = await response.json();
+                const response = await this.apiService.downloadModel(url, customName);
                 
-                if (data.success) {
+                if (response.success) {
                     this.showNotification('Téléchargement démarré avec succès', 'success');
                     this.clearForm();
                     this.loadDownloads(); // Recharger les téléchargements
                 } else {
-                    this.showNotification(`Erreur: ${data.error}`, 'error');
+                    this.showNotification(`Erreur: ${response.error}`, 'error');
                 }
             } catch (error) {
                 console.error('Download error:', error);
@@ -161,26 +139,21 @@
                 // Réactiver le bouton
                 this.elements.downloadBtn.disabled = false;
                 this.elements.downloadBtn.innerHTML = '<i class="fas fa-download"></i> Télécharger';
+                this.validateUrl(); // Re-valider pour réactiver si nécessaire
             }
         }
 
         async loadModels() {
             try {
-                const response = await fetch('/api/models', {
-                    headers: {
-                        'Authorization': `Bearer ${this.getAuthToken()}`
-                    }
-                });
-
-                const data = await response.json();
+                const response = await this.apiService.listModels();
                 
-                if (data.success) {
-                    this.models = data.models || [];
+                if (response.success) {
+                    this.models = response.models || [];
                     this.activeModel = this.models.find(m => m.isActive);
                     this.renderModels();
                 } else {
-                    console.error('Error loading models:', data.error);
-                    this.showNotification(`Erreur lors du chargement: ${data.error}`, 'error');
+                    console.error('Error loading models:', response.error);
+                    this.showNotification(`Erreur lors du chargement: ${response.error}`, 'error');
                 }
             } catch (error) {
                 console.error('Network error loading models:', error);
@@ -204,24 +177,18 @@
 
         async loadDownloads() {
             try {
-                const response = await fetch('/api/models/downloads', {
-                    headers: {
-                        'Authorization': `Bearer ${this.getAuthToken()}`
-                    }
-                });
-
-                const data = await response.json();
+                const response = await this.apiService.getDownloads();
                 
-                if (data.success) {
+                if (response.success) {
                     // Convertir le tableau en Map pour conserver la structure existante
                     this.downloads.clear();
-                    (data.downloads || []).forEach(download => {
+                    (response.downloads || []).forEach(download => {
                         this.downloads.set(download.id, download);
                     });
                     
                     this.renderDownloads();
                 } else {
-                    console.error('Error loading downloads:', data.error);
+                    console.error('Error loading downloads:', response.error);
                 }
             } catch (error) {
                 console.error('Network error loading downloads:', error);
@@ -233,24 +200,18 @@
             if (!model) return;
 
             try {
-                const response = await fetch('/api/models/activate', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${this.getAuthToken()}`
-                    },
-                    body: JSON.stringify({ 
-                        filename: model.filename || model.name 
-                    })
-                });
-
-                const data = await response.json();
+                const response = await this.apiService.activateModel(model.filename || model.name);
                 
-                if (data.success) {
+                if (response.success) {
                     this.showNotification(`Modèle "${model.name}" activé avec succès`, 'success');
                     this.loadModels(); // Recharger pour mettre à jour l'état
+                    
+                    // Notifier les autres composants
+                    document.dispatchEvent(new CustomEvent('modelChanged', {
+                        detail: { model }
+                    }));
                 } else {
-                    this.showNotification(`Erreur d'activation: ${data.error}`, 'error');
+                    this.showNotification(`Erreur d'activation: ${response.error}`, 'error');
                 }
             } catch (error) {
                 console.error('Model activation error:', error);
@@ -260,9 +221,8 @@
 
         async unloadModel(modelId) {
             // Pour l'instant, il n'y a pas d'endpoint de déchargement spécifique
-            // On peut soit désactiver ou implémenter un endpoint dédié
             console.log('Model unload requested for:', modelId);
-            this.showNotification('Déchargement des modèles non implémenté', 'info');
+            this.showNotification('Déchargement des modèles non implémenté côté serveur', 'info');
         }
 
         async deleteModel(modelId) {
@@ -275,20 +235,18 @@
 
             try {
                 const filename = model.filename || model.name;
-                const response = await fetch(`/api/models/${encodeURIComponent(filename)}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${this.getAuthToken()}`
-                    }
-                });
-
-                const data = await response.json();
+                const response = await this.apiService.deleteModel(filename);
                 
-                if (data.success) {
+                if (response.success) {
                     this.showNotification(`Modèle "${model.name}" supprimé avec succès`, 'success');
                     this.loadModels(); // Recharger la liste
+                    
+                    // Notifier les autres composants
+                    document.dispatchEvent(new CustomEvent('modelDeleted', {
+                        detail: { model }
+                    }));
                 } else {
-                    this.showNotification(`Erreur de suppression: ${data.error}`, 'error');
+                    this.showNotification(`Erreur de suppression: ${response.error}`, 'error');
                 }
             } catch (error) {
                 console.error('Model deletion error:', error);
@@ -298,20 +256,13 @@
 
         async cancelDownload(downloadId) {
             try {
-                const response = await fetch(`/api/models/downloads/${downloadId}/cancel`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${this.getAuthToken()}`
-                    }
-                });
-
-                const data = await response.json();
+                const response = await this.apiService.cancelDownload(downloadId);
                 
-                if (data.success) {
+                if (response.success) {
                     this.showNotification('Téléchargement annulé', 'success');
                     this.loadDownloads(); // Recharger les téléchargements
                 } else {
-                    this.showNotification(`Erreur d'annulation: ${data.error}`, 'error');
+                    this.showNotification(`Erreur d'annulation: ${response.error}`, 'error');
                 }
             } catch (error) {
                 console.error('Cancel download error:', error);
@@ -362,14 +313,6 @@
         }
 
         getModelItemHTML(model) {
-            const formatSize = (bytes) => {
-                if (bytes === 0) return '0 B';
-                const k = 1024;
-                const sizes = ['B', 'KB', 'MB', 'GB'];
-                const i = Math.floor(Math.log(bytes) / Math.log(k));
-                return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-            };
-
             return `
                 <div class="model-item ${model.isActive ? 'active' : ''}">
                     <div class="model-header">
@@ -384,7 +327,7 @@
                     <div class="model-info">
                         <div class="model-size">
                             <i class="fas fa-hdd"></i>
-                            ${formatSize(model.size || 0)}
+                            ${this.apiService.formatFileSize(model.size || 0)}
                         </div>
                         <div class="model-path">${model.path || model.filename}</div>
                     </div>
@@ -414,21 +357,6 @@
         }
 
         getDownloadItemHTML(download) {
-            const statusText = {
-                downloading: 'Téléchargement...',
-                completed: 'Terminé',
-                error: 'Erreur',
-                cancelled: 'Annulé'
-            };
-
-            const formatSize = (bytes) => {
-                if (bytes === 0) return '0 B';
-                const k = 1024;
-                const sizes = ['B', 'KB', 'MB', 'GB'];
-                const i = Math.floor(Math.log(bytes) / Math.log(k));
-                return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-            };
-
             const progress = download.progress || 0;
             const downloaded = download.downloaded || 0;
             const total = download.size || download.total || 0;
@@ -437,7 +365,10 @@
                 <div class="download-item ${download.status}" id="download-${download.id}">
                     <div class="download-header">
                         <div class="download-name">${download.filename}</div>
-                        <div class="download-status ${download.status}">${statusText[download.status]}</div>
+                        <div class="download-status ${download.status}">
+                            ${this.apiService.getStatusIcon(download.status)}
+                            ${this.apiService.getStatusText(download.status)}
+                        </div>
                     </div>
                     ${download.status === 'downloading' ? `
                         <div class="download-progress">
@@ -446,7 +377,7 @@
                     ` : ''}
                     <div class="download-info">
                         <span>${Math.round(progress)}%</span>
-                        ${total > 0 ? `<span>${formatSize(downloaded)} / ${formatSize(total)}</span>` : ''}
+                        ${total > 0 ? `<span>${this.apiService.formatFileSize(downloaded)} / ${this.apiService.formatFileSize(total)}</span>` : ''}
                     </div>
                     ${download.status === 'downloading' ? `
                         <div class="download-actions">
@@ -486,29 +417,16 @@
             }, 2000);
         }
 
-        getAuthToken() {
-            // Récupérer le token d'authentification depuis le localStorage ou session
-            return localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || '';
-        }
-
         showModelInfo(modelId) {
             const model = this.models.find(m => m.id === modelId || m.filename === modelId);
             if (!model) return;
-
-            const formatSize = (bytes) => {
-                if (bytes === 0) return '0 B';
-                const k = 1024;
-                const sizes = ['B', 'KB', 'MB', 'GB'];
-                const i = Math.floor(Math.log(bytes) / Math.log(k));
-                return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-            };
 
             const downloadDate = model.downloadDate ? new Date(model.downloadDate).toLocaleDateString('fr-FR') : 'Inconnue';
 
             alert(`Informations du modèle:
 
 Nom: ${model.name}
-Taille: ${formatSize(model.size || 0)}
+Taille: ${this.apiService.formatFileSize(model.size || 0)}
 Chemin: ${model.path || model.filename}
 Statut: ${model.isActive ? 'Actif' : 'Inactif'}
 Téléchargé le: ${downloadDate}`);
