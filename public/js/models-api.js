@@ -1,29 +1,57 @@
 /**
  * Service API pour la gestion des modèles
- * Centralise tous les appels vers l'API backend
+ * Centralise tous les appels vers l'API backend avec authentification par token
  */
 class ModelsApiService {
     constructor() {
         this.baseUrl = '/api/models';
+        this.authToken = null;
+        
+        // Récupérer le token au démarrage
+        this.initializeToken();
     }
 
     /**
-     * Obtenir les headers par défaut avec authentification par cookies
+     * Initialiser le token depuis localStorage
+     */
+    initializeToken() {
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            this.setAuthToken(token);
+            console.log('🔑 Auth token loaded from localStorage');
+        }
+    }
+
+    /**
+     * Définir le token d'authentification
+     */
+    setAuthToken(token) {
+        this.authToken = token;
+        console.log('🔑 Auth token updated:', token ? 'Set' : 'Cleared');
+    }
+
+    /**
+     * Obtenir les headers par défaut avec authentification
      */
     getHeaders() {
-        return {
+        const headers = {
             'Content-Type': 'application/json'
         };
+
+        if (this.authToken) {
+            headers['Authorization'] = `Bearer ${this.authToken}`;
+        }
+
+        return headers;
     }
 
     /**
-     * Obtenir les options de fetch avec credentials pour les cookies
+     * Obtenir les options de fetch
      */
     getFetchOptions(method = 'GET', body = null) {
         const options = {
             method,
-            headers: this.getHeaders(),
-            credentials: 'include' // Important pour envoyer les cookies de session
+            headers: this.getHeaders()
         };
 
         if (body) {
@@ -38,6 +66,17 @@ class ModelsApiService {
      */
     async handleResponse(response) {
         if (!response.ok) {
+            // Si erreur 401, le token est probablement invalide
+            if (response.status === 401) {
+                console.warn('🚫 Unauthorized - clearing invalid token');
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('user');
+                this.authToken = null;
+                
+                // Optionnel : rediriger vers login
+                window.dispatchEvent(new CustomEvent('authenticationRequired'));
+            }
+            
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
         }
@@ -49,10 +88,13 @@ class ModelsApiService {
      */
     async listModels() {
         try {
+            console.log('📋 Fetching models list...');
             const response = await fetch(this.baseUrl, this.getFetchOptions('GET'));
-            return await this.handleResponse(response);
+            const result = await this.handleResponse(response);
+            console.log('✅ Models loaded:', result);
+            return result;
         } catch (error) {
-            console.error('Error listing models:', error);
+            console.error('❌ Error listing models:', error);
             throw error;
         }
     }
@@ -67,10 +109,13 @@ class ModelsApiService {
                 body.filename = filename;
             }
 
+            console.log('📥 Starting model download:', body);
             const response = await fetch(`${this.baseUrl}/download`, this.getFetchOptions('POST', body));
-            return await this.handleResponse(response);
+            const result = await this.handleResponse(response);
+            console.log('✅ Download initiated:', result);
+            return result;
         } catch (error) {
-            console.error('Error downloading model:', error);
+            console.error('❌ Error downloading model:', error);
             throw error;
         }
     }
@@ -80,10 +125,13 @@ class ModelsApiService {
      */
     async activateModel(filename) {
         try {
+            console.log('🔄 Activating model:', filename);
             const response = await fetch(`${this.baseUrl}/activate`, this.getFetchOptions('POST', { filename }));
-            return await this.handleResponse(response);
+            const result = await this.handleResponse(response);
+            console.log('✅ Model activated:', result);
+            return result;
         } catch (error) {
-            console.error('Error activating model:', error);
+            console.error('❌ Error activating model:', error);
             throw error;
         }
     }
@@ -93,11 +141,14 @@ class ModelsApiService {
      */
     async deleteModel(filename) {
         try {
+            console.log('🗑️ Deleting model:', filename);
             const response = await fetch(`${this.baseUrl}/${encodeURIComponent(filename)}`, 
                 this.getFetchOptions('DELETE'));
-            return await this.handleResponse(response);
+            const result = await this.handleResponse(response);
+            console.log('✅ Model deleted:', result);
+            return result;
         } catch (error) {
-            console.error('Error deleting model:', error);
+            console.error('❌ Error deleting model:', error);
             throw error;
         }
     }
@@ -111,10 +162,13 @@ class ModelsApiService {
                 ? `${this.baseUrl}/downloads/${downloadId}`
                 : `${this.baseUrl}/downloads`;
 
+            console.log('📊 Fetching downloads status...');
             const response = await fetch(url, this.getFetchOptions('GET'));
-            return await this.handleResponse(response);
+            const result = await this.handleResponse(response);
+            console.log('✅ Downloads status:', result);
+            return result;
         } catch (error) {
-            console.error('Error getting downloads:', error);
+            console.error('❌ Error getting downloads:', error);
             throw error;
         }
     }
@@ -124,11 +178,14 @@ class ModelsApiService {
      */
     async cancelDownload(downloadId) {
         try {
+            console.log('❌ Cancelling download:', downloadId);
             const response = await fetch(`${this.baseUrl}/downloads/${downloadId}/cancel`, 
                 this.getFetchOptions('POST'));
-            return await this.handleResponse(response);
+            const result = await this.handleResponse(response);
+            console.log('✅ Download cancelled:', result);
+            return result;
         } catch (error) {
-            console.error('Error canceling download:', error);
+            console.error('❌ Error canceling download:', error);
             throw error;
         }
     }
@@ -138,11 +195,14 @@ class ModelsApiService {
      */
     async cleanupDownloads() {
         try {
+            console.log('🧹 Cleaning up downloads...');
             const response = await fetch(`${this.baseUrl}/downloads/cleanup`, 
                 this.getFetchOptions('POST'));
-            return await this.handleResponse(response);
+            const result = await this.handleResponse(response);
+            console.log('✅ Downloads cleaned up:', result);
+            return result;
         } catch (error) {
-            console.error('Error cleaning up downloads:', error);
+            console.error('❌ Error cleaning up downloads:', error);
             throw error;
         }
     }
@@ -221,17 +281,46 @@ class ModelsApiService {
      */
     async testConnection() {
         try {
+            console.log('🔍 Testing API connection...');
             const response = await fetch(this.baseUrl, this.getFetchOptions('GET'));
-            return response.ok;
+            const success = response.ok;
+            console.log(success ? '✅ API connection OK' : '❌ API connection failed');
+            return success;
         } catch (error) {
-            console.error('API connection test failed:', error);
+            console.error('❌ API connection test failed:', error);
             return false;
         }
+    }
+
+    /**
+     * Vérifier si on est authentifié
+     */
+    isAuthenticated() {
+        return !!this.authToken;
+    }
+
+    /**
+     * Obtenir le token actuel
+     */
+    getAuthToken() {
+        return this.authToken;
     }
 }
 
 // Instance globale du service API
 window.modelsApiService = new ModelsApiService();
 
+// Écouter les changements de token d'authentification
+window.addEventListener('authTokenChanged', function(event) {
+    if (event.detail && event.detail.token) {
+        window.modelsApiService.setAuthToken(event.detail.token);
+    }
+});
+
+// Écouter les déconnexions
+window.addEventListener('userLoggedOut', function() {
+    window.modelsApiService.setAuthToken(null);
+});
+
 // Log de démarrage
-console.log('📦 Models API Service initialized with cookie-based authentication');
+console.log('📦 Models API Service initialized with token-based authentication');
