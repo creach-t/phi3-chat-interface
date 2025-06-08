@@ -38,7 +38,7 @@
                     loginBtn.disabled = true;
                     const icon = loginBtn.querySelector('i');
                     if (icon) {
-                        icon.className = 'fas fa-spinner';
+                        icon.className = 'fas fa-spinner fa-spin';
                     }
                 } else {
                     loginBtn.classList.remove('loading');
@@ -67,12 +67,26 @@
             setLoading(true);
 
             try {
-                const success = await authenticateUser(username, password);
-                if (success) {
+                const authResult = await authenticateUser(username, password);
+                if (authResult.success) {
+                    // Stocker le token dans localStorage
+                    localStorage.setItem('authToken', authResult.token);
+                    localStorage.setItem('user', JSON.stringify(authResult.user));
+                    
+                    // Notifier le service API du nouveau token
+                    if (window.modelsApiService) {
+                        window.modelsApiService.setAuthToken(authResult.token);
+                    }
+                    
+                    // Émettre l'événement de changement de token
+                    window.dispatchEvent(new CustomEvent('authTokenChanged', {
+                        detail: { token: authResult.token, user: authResult.user }
+                    }));
+                    
                     // Transition vers l'interface principale
                     transitionToChat();
                 } else {
-                    showError('Nom d\'utilisateur ou mot de passe incorrect');
+                    showError(authResult.error || 'Nom d\'utilisateur ou mot de passe incorrect');
                 }
             } catch (error) {
                 console.error('Erreur d\'authentification:', error);
@@ -99,18 +113,24 @@
             const response = await fetch('/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
                 body: JSON.stringify({ username, password }),
             });
 
             const data = await response.json();
             
-            if (data.success) {
+            if (data.success && data.token) {
                 console.log('🎉 Authentication successful');
-                return true;
+                return {
+                    success: true,
+                    token: data.token,
+                    user: data.user || { username }
+                };
             } else {
                 console.log('❌ Authentication failed:', data.error);
-                return false;
+                return {
+                    success: false,
+                    error: data.error || 'Authentification échouée'
+                };
             }
         } catch (error) {
             console.error('❌ Authentication error:', error);
@@ -122,8 +142,21 @@
                 return new Promise((resolve) => {
                     setTimeout(() => {
                         const isValid = username === 'admin' && password === 'admin';
-                        console.log(isValid ? '✅ Dev auth success' : '❌ Dev auth failed');
-                        resolve(isValid);
+                        if (isValid) {
+                            const token = 'dev-token-' + Date.now();
+                            console.log('✅ Dev auth success, token:', token);
+                            resolve({
+                                success: true,
+                                token: token,
+                                user: { username: 'admin', role: 'admin' }
+                            });
+                        } else {
+                            console.log('❌ Dev auth failed');
+                            resolve({
+                                success: false,
+                                error: 'Identifiants incorrects (admin/admin pour le dev)'
+                            });
+                        }
                     }, 1000);
                 });
             }
@@ -135,18 +168,54 @@
     // Vérifier l'authentification initiale
     async function checkInitialAuthentication() {
         try {
-            const response = await fetch('/api/check-auth', { 
-                credentials: 'include' 
-            });
-            const data = await response.json();
+            const token = localStorage.getItem('authToken');
+            const userStr = localStorage.getItem('user');
             
-            if (data.authenticated) {
-                console.log('🔑 User already authenticated');
-                transitionToChat();
+            if (!token) {
+                console.log('ℹ️ No token found in localStorage');
+                return;
             }
+
+            // Vérifier la validité du token avec le serveur
+            const response = await fetch('/api/verify-token', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.valid) {
+                    console.log('🔑 Valid token found, user already authenticated');
+                    
+                    // Configurer le service API
+                    if (window.modelsApiService) {
+                        window.modelsApiService.setAuthToken(token);
+                    }
+                    
+                    // Émettre l'événement de token
+                    const user = userStr ? JSON.parse(userStr) : data.user;
+                    window.dispatchEvent(new CustomEvent('authTokenChanged', {
+                        detail: { token, user }
+                    }));
+                    
+                    transitionToChat();
+                    return;
+                }
+            }
+            
+            // Token invalide, le supprimer
+            console.log('❌ Invalid token, removing from localStorage');
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('user');
+            
         } catch (error) {
-            console.log('ℹ️ No existing authentication found');
-            // Pas d'authentification existante, rester sur la page de login
+            console.log('ℹ️ Token verification failed:', error.message);
+            // En cas d'erreur de vérification, supprimer le token
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('user');
         }
     }
 
@@ -168,10 +237,32 @@
     // Fonction de déconnexion (appelée depuis le header)
     async function handleLogout() {
         try {
-            await fetch('/api/logout', {
-                method: 'POST',
-                credentials: 'include',
-            });
+            const token = localStorage.getItem('authToken');
+            
+            // Appeler l'API de déconnexion si elle existe
+            if (token) {
+                try {
+                    await fetch('/api/logout', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                } catch (error) {
+                    console.warn('Logout API call failed:', error);
+                    // Continue with local logout even if API call fails
+                }
+            }
+            
+            // Nettoyer le localStorage
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('user');
+            
+            // Nettoyer le service API
+            if (window.modelsApiService) {
+                window.modelsApiService.setAuthToken(null);
+            }
             
             // Retour à la page de login
             const loginPage = document.getElementById('login-page');
@@ -206,6 +297,9 @@
         } catch (error) {
             console.error('❌ Logout error:', error);
             // Même en cas d'erreur, déconnecter côté client
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('user');
+            
             const loginPage = document.getElementById('login-page');
             const chatPage = document.getElementById('chat-page');
             if (loginPage && chatPage) {
@@ -213,6 +307,17 @@
                 loginPage.classList.remove('hidden');
             }
         }
+    }
+
+    // Fonction pour obtenir le token actuel
+    function getCurrentToken() {
+        return localStorage.getItem('authToken');
+    }
+
+    // Fonction pour obtenir l'utilisateur actuel
+    function getCurrentUser() {
+        const userStr = localStorage.getItem('user');
+        return userStr ? JSON.parse(userStr) : null;
     }
 
     // Écouter l'événement de chargement du composant
@@ -236,7 +341,9 @@
         init: initLogin,
         authenticate: authenticateUser,
         logout: handleLogout,
-        checkAuth: checkInitialAuthentication
+        checkAuth: checkInitialAuthentication,
+        getCurrentToken: getCurrentToken,
+        getCurrentUser: getCurrentUser
     };
 
     // Écouter les demandes de déconnexion depuis d'autres composants
